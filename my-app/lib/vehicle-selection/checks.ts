@@ -3,7 +3,6 @@
  */
 
 import { Vehicle, QueueTicket } from '../types';
-import { DISPATCHER_RULES } from '../decision-engine/rules';
 import { CheckFailure } from './types';
 
 function isWinterMonth(dateStr: string): boolean {
