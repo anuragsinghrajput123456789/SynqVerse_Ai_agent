@@ -1,5 +1,6 @@
 /**
  * Unified Repositories Layer
+ * Supports MongoDB with production fail-fast enforcement and local dev fallback.
  */
 
 import { Db } from 'mongodb';
@@ -34,10 +35,11 @@ async function getDb(): Promise<Db | null> {
   try {
     return await getMongoDb();
   } catch (err) {
-    if (process.env.NODE_ENV === 'test') {
-      return null;
+    if (process.env.NODE_ENV === 'production') {
+      throw err; // Strict fail-fast in production
     }
-    throw err;
+    console.warn('MongoDB unavailable in dev/test mode, utilizing repository store:', (err as Error).message);
+    return null;
   }
 }
 

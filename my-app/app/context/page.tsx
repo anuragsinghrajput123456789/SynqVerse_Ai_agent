@@ -37,7 +37,10 @@ export default function ContextExplorerPage() {
 
   useEffect(() => {
     fetch('/api/context/ingest')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data: IngestionStatus) => setStatusData(data))
       .catch((err) => console.error(err));
   }, []);
@@ -52,10 +55,19 @@ export default function ContextExplorerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: queryInput }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data: QueryResult = await res.json();
       setQueryResult(data);
     } catch (err) {
       console.error(err);
+      setQueryResult({
+        answer: 'Insufficient data to determine this.',
+        status: 'insufficient_data',
+        sources: [],
+        conflicts: [],
+      });
     } finally {
       setQueryLoading(false);
     }
@@ -89,8 +101,12 @@ export default function ContextExplorerPage() {
           <button
             onClick={() => {
               fetch('/api/context/ingest', { method: 'POST' })
-                .then((r) => r.json())
-                .then((d: IngestionStatus) => setStatusData(d));
+                .then((r) => {
+                  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                  return r.json();
+                })
+                .then((d: IngestionStatus) => setStatusData(d))
+                .catch((err) => console.error(err));
             }}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-all shadow-lg shadow-indigo-600/20"
           >
