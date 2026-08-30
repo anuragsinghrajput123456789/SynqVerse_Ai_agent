@@ -47,7 +47,7 @@ export class AuditLogRepository {
 
   public async findByEventType(eventType: string): Promise<AuditEvent[]> {
     const col = await this.getCollection();
-    return col.find({ eventType: eventType as any }).sort({ timestamp: -1 }).toArray();
+    return col.find({ eventType: eventType as import('./types').AuditEventType }).sort({ timestamp: -1 }).toArray();
   }
 
   public async findAll(): Promise<AuditEvent[]> {
