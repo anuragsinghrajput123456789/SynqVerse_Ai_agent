@@ -34,7 +34,7 @@ export class WorkOrderRepository {
     const col = await this.getCollection();
 
     try {
-      await col.insertOne(workOrder as any);
+      await col.insertOne(workOrder as import('mongodb').OptionalUnlessRequiredId<WorkOrder>);
       return { created: true, workOrder };
     } catch (err: unknown) {
       // Check for MongoDB Duplicate Key Error (Code 11000)
