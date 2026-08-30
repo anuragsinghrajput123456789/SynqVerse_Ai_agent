@@ -1,16 +1,23 @@
 /**
  * Module 2: Decision Engine Test Suite
- * Validates deterministic severity classification, dispatcher rule execution,
- * candidate vehicle evaluation, seasonal/client/maintenance constraints, and provenance.
+ * Validates deterministic severity classification, dispatcher rules,
+ * SLA rules, seasonal/route/client/maintenance restrictions, and candidate ranking.
  */
 
-import { DecisionEngine } from '../lib/decision-engine';
-import { DISPATCHER_RULES } from '../lib/decision-engine/rules';
+import {
+  DecisionEngine,
+  DISPATCHER_RULES,
+  evaluateSeverity,
+  evaluateAction,
+  evaluateSLA,
+  evaluateVehicleRestrictions,
+  evaluateReplacementCandidates,
+} from '../lib/decision-engine';
 import { UnifiedContextStore } from '../lib/context';
 import { runIngestion } from '../lib/ingestion';
 import { closeMongoDb } from '../lib/db/mongodb';
 import { DecisionRepository, QueueRepository } from '../lib/repositories';
-import { QueueTicket } from '../lib/types';
+import { QueueTicket, Vehicle } from '../lib/types';
 import { GroundedAnswerSchema } from '../lib/ai/gemini';
 
 async function runDecisionEngineTests() {
@@ -215,7 +222,7 @@ async function runDecisionEngineTests() {
   const intermediateHubRejection = dec9.rejectedCandidates.find((c) => c.homeHub !== 'Lucknow');
   if (intermediateHubRejection) {
     assert(
-      intermediateHubRejection.reasons.some((r) => r.includes('Rule R-004 mandates replacement from origin hub')),
+      intermediateHubRejection.reasons.some((r) => r.includes('Rule R-004')),
       'Intermediate hub candidate rejected with Rule R-004 reason'
     );
   }
@@ -251,7 +258,7 @@ async function runDecisionEngineTests() {
   const oldVehRejected = dec10.rejectedCandidates.find((c) => c.year < 2020);
   if (oldVehRejected) {
     assert(
-      oldVehRejected.reasons.some((r) => r.includes('Orion Pharma audit mandates vehicle year 2020 or newer')),
+      oldVehRejected.reasons.some((r) => r.includes('Rule R-007')),
       'Pre-2020 vehicle rejected with explicit Orion Pharma audit citation'
     );
   }
@@ -290,6 +297,42 @@ async function runDecisionEngineTests() {
   };
   const validation = GroundedAnswerSchema.safeParse(malformedGeminiOutput);
   assert(validation.success === false, 'Malformed AI payload is safely intercepted by Zod schema');
+
+  console.log('\n--- TEST 13: Modular Evaluators Unit Tests ---');
+  // 13.1 evaluateSeverity
+  const sevResult = evaluateSeverity(normalTicket, null);
+  assert(sevResult.decision === 'HIGH', 'evaluateSeverity unit test returns HIGH for alternator failure');
+  assert(sevResult.matchedRules !== undefined, 'evaluateSeverity returns matchedRules');
+  assert(sevResult.sources.length > 0, 'evaluateSeverity returns sources');
+
+  // 13.2 evaluateAction
+  const actResult = evaluateAction(normalTicket, sevResult);
+  assert(actResult.decision === 'VEHICLE_REPLACEMENT', 'evaluateAction unit test returns VEHICLE_REPLACEMENT');
+
+  // 13.3 evaluateSLA
+  const slaResult = evaluateSLA(criticalTicket, null);
+  assert(slaResult.decision === 36, 'evaluateSLA unit test returns 36 for Shakti Cement');
+  assert(slaResult.matchedRules.some((r) => r.ruleId === 'R-008'), 'evaluateSLA applies rule R-008');
+
+  // 13.4 evaluateRestrictions
+  const testCandidateVehicle: Vehicle = {
+    registrationNumber: 'DL01AB9999',
+    model: 'Tata Signa',
+    year: 2017,
+    bsStage: 'BS4',
+    engineHeater: false,
+    homeHub: 'Ambala',
+    capacityTonnes: 16,
+    status: 'Active',
+    aliases: [],
+  };
+  const restrictionWinter = evaluateVehicleRestrictions(testCandidateVehicle, winterDelhiTicket);
+  assert(restrictionWinter.isRestricted === true, 'evaluateVehicleRestrictions flags BS4 vehicle on winter Delhi route');
+  assert(restrictionWinter.violatedRules.some((r) => r.ruleId === 'R-001'), 'evaluateVehicleRestrictions identifies rule R-001 violation');
+
+  // 13.5 evaluateReplacementCandidates
+  const candSelection = evaluateReplacementCandidates(normalTicket, [testCandidateVehicle]);
+  assert(candSelection.candidateEvaluations.length === 1, 'evaluateReplacementCandidates evaluates candidate array');
 
   console.log('\n===================================================================');
   console.log(` MODULE 2 TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);

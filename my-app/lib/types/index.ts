@@ -176,12 +176,14 @@ export interface QueueStats {
 export interface DispatcherRule {
   ruleId: string;
   name: string;
-  description: string;
-  conditions: string[];
+  condition: string;
+  description?: string;
+  conditions?: string[];
   decision: string;
   priority: number;
   source: string;
   sourceReference: string;
+  category?: string;
 }
 
 export interface CandidateEvaluation {
