@@ -63,6 +63,47 @@ export async function getTicketAuditTimeline(
   return repository.findByTicketId(ticketId);
 }
 
+export interface FullTicketAuditTrail {
+  ticketId: string;
+  totalEvents: number;
+  timeline: AuditEvent[];
+  decisions: AuditEvent[];
+  rulesApplied: string[];
+  sourcesCited: string[];
+  firstEventTimestamp: string | null;
+  lastEventTimestamp: string | null;
+}
+
+/**
+ * Retrieves the complete chronological audit timeline and decision trail for a specific ticket in one call.
+ */
+export async function auditLookup(ticketId: string): Promise<FullTicketAuditTrail> {
+  const timeline = await repository.findByTicketId(ticketId);
+  const decisionEvents = timeline.filter(
+    (e) =>
+      e.eventType === 'RULE_EVALUATED' ||
+      e.eventType === 'VEHICLE_SELECTED' ||
+      e.eventType === 'WORK_ORDER_CREATED'
+  );
+  const rulesApplied = Array.from(
+    new Set(timeline.map((e) => e.ruleId).filter((r): r is string => Boolean(r)))
+  );
+  const sourcesCited = Array.from(
+    new Set(timeline.flatMap((e) => e.sourceReferences).filter(Boolean))
+  );
+
+  return {
+    ticketId,
+    totalEvents: timeline.length,
+    timeline,
+    decisions: decisionEvents,
+    rulesApplied,
+    sourcesCited,
+    firstEventTimestamp: timeline.length > 0 ? timeline[0].timestamp : null,
+    lastEventTimestamp: timeline.length > 0 ? timeline[timeline.length - 1].timestamp : null,
+  };
+}
+
 export class AuditService {
   private static instance: AuditService;
   private repo = new AuditLogRepository();
@@ -80,6 +121,10 @@ export class AuditService {
 
   public async getTimeline(ticketId: string): Promise<AuditEvent[]> {
     return getTicketAuditTimeline(ticketId);
+  }
+
+  public async auditLookup(ticketId: string): Promise<FullTicketAuditTrail> {
+    return auditLookup(ticketId);
   }
 
   public async getAllEvents(): Promise<AuditEvent[]> {

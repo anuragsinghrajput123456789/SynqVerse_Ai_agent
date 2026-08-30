@@ -155,7 +155,7 @@ export class TicketSchemaAdapter {
       }
     }
     if (!issue) {
-      validationErrors.push('Missing failure/issue description (expected issue, problem, or description)');
+      validationErrors.push('Missing failure/issue description: Missing required breakdown issue (expected issue, problem, or description)');
     }
 
     // 4. Extract Driver ID

@@ -7,6 +7,7 @@
 import {
   createAuditEvent,
   getTicketAuditTimeline,
+  auditLookup,
   AuditService,
   AuditEventType,
 } from '../lib/audit';
@@ -138,6 +139,16 @@ async function runAuditTrailTests() {
   const timelineSecure = await getTicketAuditTimeline('TKT-AUD-SECURE');
   assert(timeline1.length === 1, 'Timeline for TKT-AUD-001 contains only its own 1 event');
   assert(timelineSecure.length === 1, 'Timeline for TKT-AUD-SECURE contains only its own 1 event');
+
+  console.log('\n--- TEST 6: Single-Call Full Decision & Audit Lookup (auditLookup) ---');
+  const fullTrail = await auditLookup('TKT-AUD-LIFECYCLE');
+  assert(fullTrail.ticketId === 'TKT-AUD-LIFECYCLE', 'auditLookup matches requested ticketId');
+  assert(fullTrail.totalEvents === 15, 'auditLookup returns complete count of 15 events');
+  assert(fullTrail.decisions.length >= 3, 'auditLookup isolates operational decision events');
+  assert(fullTrail.rulesApplied.includes('R-001'), 'auditLookup extracts applied rule ID R-001');
+  assert(fullTrail.sourcesCited.includes('dispatcher_interview.txt'), 'auditLookup extracts cited source file');
+  assert(fullTrail.firstEventTimestamp !== null, 'auditLookup captures first event timestamp');
+  assert(fullTrail.lastEventTimestamp !== null, 'auditLookup captures last event timestamp');
 
   console.log('\n===================================================================');
   console.log(` MODULE 7 TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);

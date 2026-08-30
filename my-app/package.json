@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "ingest": "tsx scripts/run-ingestion.ts",
-    "test": "tsx tests/part-a-integration.test.ts && tsx tests/module-1-queue.test.ts && tsx tests/module-2-decision.test.ts && tsx tests/module-3-vehicle-selection.test.ts && tsx tests/module-4-work-orders.test.ts && tsx tests/module-5-ai-drafting.test.ts && tsx tests/module-6-approvals.test.ts && tsx tests/module-7-audit.test.ts && tsx tests/module-8-pipeline.test.ts",
+    "test": "tsx tests/part-a-integration.test.ts && tsx tests/module-1-queue.test.ts && tsx tests/module-2-decision.test.ts && tsx tests/module-3-vehicle-selection.test.ts && tsx tests/module-4-work-orders.test.ts && tsx tests/module-5-ai-drafting.test.ts && tsx tests/module-6-approvals.test.ts && tsx tests/module-7-audit.test.ts && tsx tests/module-8-pipeline.test.ts && tsx tests/copilot-rag.test.ts && tsx tests/voice-integration.test.ts",
     "test:queue": "tsx tests/module-1-queue.test.ts",
     "test:decision": "tsx tests/module-2-decision.test.ts",
     "test:selection": "tsx tests/module-3-vehicle-selection.test.ts",
@@ -17,6 +17,8 @@
     "test:approvals": "tsx tests/module-6-approvals.test.ts",
     "test:audit": "tsx tests/module-7-audit.test.ts",
     "test:pipeline": "tsx tests/module-8-pipeline.test.ts",
+    "test:copilot": "tsx tests/copilot-rag.test.ts",
+    "test:voice": "tsx tests/voice-integration.test.ts",
     "test:surprise": "tsx tests/surprise-ticket-pipeline.test.ts"
   },
   "dependencies": {

@@ -3,6 +3,7 @@
  * Manages explicit human review for AI client-messages with MongoDB state of truth.
  */
 
+import { maskPii } from '../pii';
 import { ApprovalRepository } from './repository';
 import {
   ApprovalRecord,
@@ -23,7 +24,8 @@ const repository = new ApprovalRepository();
 export async function createApproval(
   input: CreateApprovalInput
 ): Promise<ApprovalRecord> {
-  const approvalId = input.customApprovalId || `APR-${input.ticketId}`;
+  const { data: sanitizedInput } = maskPii(input);
+  const approvalId = sanitizedInput.customApprovalId || `APR-${sanitizedInput.ticketId}`;
   const now = new Date().toISOString();
 
   // Check if approval record already exists
@@ -34,9 +36,9 @@ export async function createApproval(
 
   const newRecord: ApprovalRecord = {
     approvalId,
-    ticketId: input.ticketId,
-    workOrderId: input.workOrderId,
-    message: input.message,
+    ticketId: sanitizedInput.ticketId,
+    workOrderId: sanitizedInput.workOrderId,
+    message: sanitizedInput.message,
     status: 'PENDING' as ApprovalStatus,
     createdAt: now,
     updatedAt: now,
@@ -90,7 +92,7 @@ export async function approveMessage(
   record.status = 'APPROVED';
   record.approvedAt = now;
   record.actor = actor;
-  record.approvalNotes = notes || null;
+  record.approvalNotes = notes ? String(maskPii(notes).data) : null;
   record.updatedAt = now;
 
   await repository.update(record);
@@ -146,7 +148,7 @@ export async function rejectMessage(
   record.status = 'REJECTED';
   record.rejectedAt = now;
   record.actor = actor;
-  record.rejectionReason = reason.trim();
+  record.rejectionReason = String(maskPii(reason.trim()).data);
   record.updatedAt = now;
 
   await repository.update(record);

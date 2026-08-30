@@ -11,6 +11,7 @@ import { createWorkOrderIdempotent } from '../work-orders';
 import { draftClientMessage } from '../ai';
 import { createApproval } from '../approvals';
 import { createAuditEvent, getTicketAuditTimeline } from '../audit';
+import { QueueRepository } from '../repositories';
 import { ProcessTicketResult } from './types';
 
 export async function processTicket(ticket: QueueTicket): Promise<ProcessTicketResult> {
@@ -250,6 +251,7 @@ export async function processTicket(ticket: QueueTicket): Promise<ProcessTicketR
       });
     }
 
+    await new QueueRepository().updateStatus(ticketId, 'COMPLETED');
     const auditEvents = await getTicketAuditTimeline(ticketId);
 
     return {

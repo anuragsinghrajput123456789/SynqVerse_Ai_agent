@@ -3,6 +3,7 @@
  * Provides atomic, MongoDB-backed idempotent creation and retrieval.
  */
 
+import { maskPii } from '../pii';
 import { WorkOrderRepository } from './repository';
 import {
   WorkOrder,
@@ -23,26 +24,27 @@ const repository = new WorkOrderRepository();
 export async function createWorkOrderIdempotent(
   input: CreateWorkOrderInput
 ): Promise<CreateWorkOrderResult> {
-  const idempotencyKey = input.customIdempotencyKey || `WORK_ORDER:${input.ticketId}`;
+  const { data: sanitizedInput } = maskPii(input);
+  const idempotencyKey = sanitizedInput.customIdempotencyKey || `WORK_ORDER:${sanitizedInput.ticketId}`;
   const now = new Date().toISOString();
 
   const newWorkOrder: WorkOrder = {
-    workOrderId: `WO-${input.ticketId}`,
+    workOrderId: `WO-${sanitizedInput.ticketId}`,
     idempotencyKey,
-    ticketId: input.ticketId,
+    ticketId: sanitizedInput.ticketId,
     createdAt: now,
     updatedAt: now,
     status: 'DISPATCHED' as WorkOrderStatus,
-    action: input.action,
-    severity: input.severity,
-    client: input.client,
-    vehicleAssigned: input.vehicleAssigned,
-    replacementVehicle: input.replacementVehicle,
-    driverAssigned: input.driverAssigned,
-    slaDeadlineHours: input.slaDeadlineHours,
-    instructions: input.instructions || [],
-    rulesApplied: input.rulesApplied || [],
-    metadata: input.metadata || {},
+    action: sanitizedInput.action,
+    severity: sanitizedInput.severity,
+    client: sanitizedInput.client,
+    vehicleAssigned: sanitizedInput.vehicleAssigned,
+    replacementVehicle: sanitizedInput.replacementVehicle,
+    driverAssigned: sanitizedInput.driverAssigned,
+    slaDeadlineHours: sanitizedInput.slaDeadlineHours,
+    instructions: sanitizedInput.instructions || [],
+    rulesApplied: sanitizedInput.rulesApplied || [],
+    metadata: sanitizedInput.metadata || {},
   };
 
   const result = await repository.createIdempotent(newWorkOrder);
