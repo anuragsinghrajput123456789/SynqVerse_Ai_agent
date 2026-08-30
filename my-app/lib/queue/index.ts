@@ -12,11 +12,15 @@ import { normalizeVehicleReg, normalizeDriverId, normalizeClientName, normalizeS
 import { EntityResolver } from '../entity-resolution';
 import { QuarantineManager } from '../quarantine';
 import { UnifiedContextStore } from '../context';
+import { TicketSchemaAdapter } from '../adapters/ticket-schema-adapter';
+
+export * from '../adapters/ticket-schema-adapter';
 
 export interface TicketIngestionOptions {
   dataDir?: string;
   customTickets?: Record<string, unknown>[];
   runId?: string;
+  sourceFile?: string;
 }
 
 export interface TicketIngestionResult {
@@ -64,7 +68,7 @@ export class BreakdownQueueService {
   }
 
   /**
-   * Ingests, validates, masks PII, normalizes, and classifies tickets
+   * Ingests, validates, masks PII, adapts controlled schemas, and classifies tickets
    */
   public async ingestTickets(options: TicketIngestionOptions = {}): Promise<TicketIngestionResult> {
     await this.initResolvers();
@@ -73,13 +77,14 @@ export class BreakdownQueueService {
     const fallbackDir = path.join(process.cwd(), 'data');
     const dataDir = fs.existsSync(baseDir) ? baseDir : fallbackDir;
     const ingestionRunId = options.runId || `queue_run_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const sourceFileName = options.sourceFile || 'tickets.json';
 
     let rawList: Record<string, unknown>[] = [];
 
     if (options.customTickets) {
       rawList = options.customTickets;
     } else {
-      const ticketsPath = path.join(dataDir, 'tickets.json');
+      const ticketsPath = path.join(dataDir, sourceFileName);
       if (fs.existsSync(ticketsPath)) {
         const content = fs.readFileSync(ticketsPath, 'utf-8');
         rawList = JSON.parse(content) as Record<string, unknown>[];
@@ -98,42 +103,82 @@ export class BreakdownQueueService {
       // 1. PII Masking
       const { data: maskedRecord } = maskPii(rawRecord);
 
-      const rawTicketId = String(maskedRecord['ticket_id'] || '').trim();
-      const rawVehicle = String(maskedRecord['vehicle'] || '').trim();
-      const rawDriver = String(maskedRecord['driver_id'] || '').trim();
-      const rawIssue = String(maskedRecord['issue'] || '').trim();
-      const rawSeverity = String(maskedRecord['severity'] || 'MEDIUM').toUpperCase().trim();
-      const rawClient = String(maskedRecord['client'] || '').trim();
-      const rawOriginHub = String(maskedRecord['origin_hub'] || '').trim();
-      const rawDestination = String(maskedRecord['destination'] || '').trim();
-      const rawKm = parseInt(String(maskedRecord['km_from_origin_hub']), 10) || 0;
-      const rawCreatedAt = String(maskedRecord['created_at'] || new Date().toISOString()).trim();
-      const rawStatus = String(maskedRecord['status'] || 'OPEN').trim();
-      const resolutionNote = String(maskedRecord['resolution_note'] || '').trim();
+      // 2. Controlled Schema Adaptation & Field Detection
+      const adaptResult = TicketSchemaAdapter.adapt(maskedRecord as Record<string, unknown>);
 
-      // 2. Validation Checks
-      const validationErrors: string[] = [];
-      if (!rawTicketId) {
-        validationErrors.push('Missing ticket_id identifier');
+      if (!adaptResult.success || !adaptResult.adaptedRecord) {
+        // Record cannot be safely interpreted -> Quarantine
+        const rawId = String(rawRecord['ticket_id'] || rawRecord['ticketId'] || rawRecord['id'] || `UNINTERPRETABLE_TKT_${index + 1}`);
+        const quarantineRecord = this.quarantineManager.quarantine(
+          sourceFileName,
+          rawId,
+          adaptResult.validationErrors.join('; '),
+          adaptResult.validationErrors,
+          rawRecord,
+          ingestionRunId
+        );
+        await this.store.saveQuarantine(quarantineRecord);
+
+        const quarantinedTicket: QueueTicket = {
+          ticketId: rawId,
+          idempotencyKey: `QUARANTINED:${rawId}`,
+          canonicalTicketId: rawId,
+          createdAt: new Date().toISOString(),
+          vehicle: String(rawRecord['vehicle'] || rawRecord['vehicle_id'] || rawRecord['vehicleId'] || 'UNKNOWN_VEHICLE'),
+          rawVehicle: String(rawRecord['vehicle'] || rawRecord['vehicle_id'] || rawRecord['vehicleId'] || ''),
+          driverId: String(rawRecord['driver_id'] || rawRecord['driverId'] || ''),
+          rawDriverId: String(rawRecord['driver_id'] || rawRecord['driverId'] || ''),
+          originHub: String(rawRecord['origin_hub'] || rawRecord['originHub'] || ''),
+          kmFromOriginHub: 0,
+          destination: String(rawRecord['destination'] || ''),
+          issue: String(rawRecord['issue'] || '[MISSING ISSUE]'),
+          severity: 'MEDIUM',
+          client: String(rawRecord['client'] || rawRecord['client_name'] || rawRecord['clientName'] || ''),
+          status: 'QUARANTINED',
+          isDuplicate: false,
+          isQuarantined: true,
+          quarantineReason: adaptResult.validationErrors.join('; '),
+          validationErrors: adaptResult.validationErrors,
+          ingestionRunId,
+          sourceFile: sourceFileName,
+          metadata: adaptResult.adaptedRecord?.preservedUnknownFields || {},
+          detectedSchema: adaptResult.detectedSchema,
+        };
+
+        await this.store.saveQueueTicket(quarantinedTicket);
+        quarantinedTickets.push(quarantinedTicket);
+        continue;
       }
 
+      const adapted = adaptResult.adaptedRecord;
+      const rawTicketId = adapted.ticketId;
+      const rawVehicle = adapted.vehicle;
+      const rawDriver = adapted.driverId;
+      const rawIssue = adapted.issue;
+      const rawSeverity = adapted.severity;
+      const rawClient = adapted.client;
+      const rawOriginHub = adapted.originHub;
+      const rawDestination = adapted.destination;
+      const rawKm = adapted.kmFromOriginHub;
+      const rawCreatedAt = adapted.createdAt;
+      const rawStatus = adapted.status;
+      const resolutionNote = adapted.resolutionNote;
+
+      // 3. Validation & Entity Resolution Checks
+      const validationErrors: string[] = [];
       const normVehicle = normalizeVehicleReg(rawVehicle);
       const resVehicle = this.entityResolver.resolveVehicleId(normVehicle);
-      if (!rawVehicle || !resVehicle.canonicalId || resVehicle.status === 'UNRESOLVED') {
+      if (!rawVehicle || !resVehicle.canonicalId || resVehicle.status !== 'RESOLVED') {
         validationErrors.push(`Unrecognized or invalid vehicle identifier '${rawVehicle}'`);
-      }
-
-      if (!rawIssue) {
-        validationErrors.push('Missing failure/issue description');
       }
 
       const canonicalTicketId = rawTicketId.toUpperCase();
       const idempotencyKey = `BREAKDOWN:${canonicalTicketId}`;
 
-      // 3. Quarantine Classification (Invalid tickets)
+      // Quarantine Classification (Invalid tickets)
       if (validationErrors.length > 0) {
         const quarantineRecord = this.quarantineManager.quarantine(
-          'tickets.json',
+          sourceFileName,
           rawTicketId || `INVALID_TKT_${index + 1}`,
           validationErrors.join('; '),
           validationErrors,
@@ -165,7 +210,9 @@ export class BreakdownQueueService {
           quarantineReason: validationErrors.join('; '),
           validationErrors,
           ingestionRunId,
-          sourceFile: 'tickets.json',
+          sourceFile: sourceFileName,
+          metadata: adapted.preservedUnknownFields,
+          detectedSchema: adapted.detectedSchema,
         };
 
         await this.store.saveQueueTicket(quarantinedTicket);
@@ -206,7 +253,9 @@ export class BreakdownQueueService {
             duplicateOf: canonicalTicketId,
             isQuarantined: false,
             ingestionRunId,
-            sourceFile: 'tickets.json',
+            sourceFile: sourceFileName,
+            metadata: adapted.preservedUnknownFields,
+            detectedSchema: adapted.detectedSchema,
           };
 
           await this.store.saveQueueTicket(duplicateTicket);
@@ -246,7 +295,9 @@ export class BreakdownQueueService {
         isDuplicate: false,
         isQuarantined: false,
         ingestionRunId,
-        sourceFile: 'tickets.json',
+        sourceFile: sourceFileName,
+        metadata: adapted.preservedUnknownFields,
+        detectedSchema: adapted.detectedSchema,
       };
 
       await this.store.saveQueueTicket(validTicket);

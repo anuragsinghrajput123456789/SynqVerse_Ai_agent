@@ -161,6 +161,8 @@ export interface QueueTicket {
   ingestionRunId: string;
   sourceFile: string;
   processedAt?: string;
+  metadata?: Record<string, unknown>;
+  detectedSchema?: string;
 }
 
 export interface QueueStats {

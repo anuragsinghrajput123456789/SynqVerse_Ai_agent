@@ -23,6 +23,7 @@ import { EntityResolver } from '../entity-resolution';
 import { ConflictResolver, FieldCandidate } from '../conflict-resolution';
 import { QuarantineManager } from '../quarantine';
 import { UnifiedContextStore } from '../context';
+import { TicketSchemaAdapter } from '../adapters/ticket-schema-adapter';
 
 export interface IngestionOptions {
   dataDir?: string;
@@ -258,14 +259,31 @@ export async function runIngestion(options: IngestionOptions = {}): Promise<Inge
       const { data: maskedTicket, maskedCount } = maskPii(t);
       totalPiiMasked += maskedCount;
 
-      const ticketId = String(maskedTicket['ticket_id'] || '').trim();
-      const rawVeh = String(maskedTicket['vehicle'] || '').trim();
-      const rawDrv = String(maskedTicket['driver_id'] || '').trim();
+      const adaptResult = TicketSchemaAdapter.adapt(maskedTicket as Record<string, unknown>);
+
+      if (!adaptResult.success || !adaptResult.adaptedRecord) {
+        totalRejected++;
+        const rawId = String(t['ticket_id'] || t['ticketId'] || t['id'] || 'UNKNOWN_TICKET_ID');
+        quarantineManager.quarantine(
+          'tickets.json',
+          rawId,
+          adaptResult.validationErrors.join('; '),
+          adaptResult.validationErrors,
+          t,
+          ingestionRunId
+        );
+        continue;
+      }
+
+      const adapted = adaptResult.adaptedRecord;
+      const ticketId = adapted.ticketId;
+      const rawVeh = adapted.vehicle;
+      const rawDrv = adapted.driverId;
       const normVeh = normalizeVehicleReg(rawVeh);
       const resVeh = entityResolver.resolveVehicleId(normVeh);
       const canonicalDrv = normalizeDriverId(rawDrv);
 
-      if (!ticketId || !resVeh.canonicalId || !maskedTicket['issue']) {
+      if (!ticketId || !resVeh.canonicalId || !adapted.issue) {
         totalRejected++;
         quarantineManager.quarantine(
           'tickets.json',
@@ -274,7 +292,7 @@ export async function runIngestion(options: IngestionOptions = {}): Promise<Inge
           [
             !ticketId ? 'missing ticket_id' : '',
             !resVeh.canonicalId ? `unrecognized vehicle '${rawVeh}'` : '',
-            !maskedTicket['issue'] ? 'missing issue description' : '',
+            !adapted.issue ? 'missing issue description' : '',
           ].filter(Boolean),
           t,
           ingestionRunId
@@ -285,17 +303,17 @@ export async function runIngestion(options: IngestionOptions = {}): Promise<Inge
       totalNormalized++;
       const ticket: BreakdownTicket = {
         ticketId,
-        createdAt: String(maskedTicket['created_at'] || '').trim(),
+        createdAt: adapted.createdAt,
         vehicle: resVeh.canonicalId,
         driverId: canonicalDrv || rawDrv,
-        originHub: String(maskedTicket['origin_hub'] || '').trim(),
-        kmFromOriginHub: parseInt(String(maskedTicket['km_from_origin_hub']), 10) || 0,
-        destination: String(maskedTicket['destination'] || '').trim(),
-        issue: String(maskedTicket['issue'] || '').trim(),
-        severity: String(maskedTicket['severity'] || 'MEDIUM').toUpperCase(),
-        client: normalizeClientName(String(maskedTicket['client'])),
-        status: normalizeStatus(String(maskedTicket['status'])),
-        resolutionNote: String(maskedTicket['resolution_note'] || ''),
+        originHub: adapted.originHub,
+        kmFromOriginHub: adapted.kmFromOriginHub,
+        destination: adapted.destination,
+        issue: adapted.issue,
+        severity: adapted.severity || 'MEDIUM',
+        client: normalizeClientName(adapted.client),
+        status: normalizeStatus(adapted.status),
+        resolutionNote: adapted.resolutionNote,
       };
 
       rawTickets.push(ticket);
