@@ -172,3 +172,50 @@ export interface QueueStats {
   processing: number;
   completed: number;
 }
+
+export interface DispatcherRule {
+  ruleId: string;
+  name: string;
+  description: string;
+  conditions: string[];
+  decision: string;
+  priority: number;
+  source: string;
+  sourceReference: string;
+}
+
+export interface CandidateEvaluation {
+  vehicleId: string;
+  registrationNumber: string;
+  model: string;
+  year: number;
+  bsStage: string;
+  homeHub: string;
+  capacityTonnes: number;
+  engineHeater: boolean;
+  eligible: boolean;
+  distanceKm: number;
+  reasons: string[];
+  rejectedRules: DispatcherRule[];
+  rulesApplied: DispatcherRule[];
+  sources: SourceCitation[];
+}
+
+export interface DecisionRecord {
+  decisionId: string;
+  ticketId: string;
+  createdAt: string;
+  decisionStatus: 'DECIDED' | 'INSUFFICIENT_DATA' | 'MANUAL_OVERRIDE_REQUIRED';
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  action: 'ROADSIDE_REPAIR' | 'VEHICLE_REPLACEMENT' | 'WORKSHOP_TOW';
+  actionReason: string;
+  selectedVehicle: CandidateEvaluation | null;
+  candidateEvaluations: CandidateEvaluation[];
+  rejectedCandidates: CandidateEvaluation[];
+  rulesApplied: DispatcherRule[];
+  evidence: Record<string, unknown>;
+  sources: SourceCitation[];
+  explanation: string;
+  slaDeadlineHours?: number;
+  transitBufferPercentage?: number;
+}

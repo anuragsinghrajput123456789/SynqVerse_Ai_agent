@@ -12,6 +12,7 @@ import {
   ConflictRepository,
   QuarantineRepository,
   QueueRepository,
+  DecisionRepository,
   inMemoryTestStore,
 } from '../repositories';
 import {
@@ -26,6 +27,7 @@ import {
   QueueTicket,
   QueueTicketStatus,
   QueueStats,
+  DecisionRecord,
 } from '../types';
 
 export class UnifiedContextStore {
@@ -39,6 +41,7 @@ export class UnifiedContextStore {
   private conflictRepo = new ConflictRepository();
   private quarantineRepo = new QuarantineRepository();
   private queueRepo = new QueueRepository();
+  private decisionRepo = new DecisionRepository();
 
   public static getInstance(): UnifiedContextStore {
     if (!UnifiedContextStore.instance) {
@@ -105,6 +108,22 @@ export class UnifiedContextStore {
 
   public async getQueueStats(): Promise<QueueStats> {
     return this.queueRepo.getStats();
+  }
+
+  public async saveDecision(d: DecisionRecord) {
+    await this.decisionRepo.upsertDecision(d);
+  }
+
+  public async getDecision(decisionId: string): Promise<DecisionRecord | null> {
+    return this.decisionRepo.findByDecisionId(decisionId);
+  }
+
+  public async getDecisionByTicketId(ticketId: string): Promise<DecisionRecord | null> {
+    return this.decisionRepo.findByTicketId(ticketId);
+  }
+
+  public async getAllDecisions(): Promise<DecisionRecord[]> {
+    return this.decisionRepo.findAll();
   }
 
   public async getVehicle(query: string): Promise<Vehicle | null> {

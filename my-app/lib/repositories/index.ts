@@ -17,6 +17,7 @@ import {
   QueueTicket,
   QueueTicketStatus,
   QueueStats,
+  DecisionRecord,
 } from '../types';
 
 class InMemoryStore {
@@ -28,6 +29,7 @@ class InMemoryStore {
   public conflicts = new Map<string, Conflict>();
   public quarantine = new Map<string, QuarantineRecord>();
   public queueTickets = new Map<string, QueueTicket>();
+  public decisions = new Map<string, DecisionRecord>();
   public status: IngestionStatus | null = null;
 
   public clear() {
@@ -39,6 +41,7 @@ class InMemoryStore {
     this.conflicts.clear();
     this.quarantine.clear();
     this.queueTickets.clear();
+    this.decisions.clear();
     this.status = null;
   }
 }
@@ -367,5 +370,62 @@ export class QueueRepository {
       await col.deleteMany({});
     }
     inMemoryTestStore.queueTickets.clear();
+  }
+}
+
+export class DecisionRepository {
+  public async upsertDecision(decision: DecisionRecord): Promise<void> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection('decisions');
+      await col.updateOne(
+        { decisionId: decision.decisionId },
+        { $set: decision },
+        { upsert: true }
+      );
+    } else {
+      inMemoryTestStore.decisions.set(decision.decisionId, decision);
+      // Also index by ticketId
+      inMemoryTestStore.decisions.set(`by_ticket_${decision.ticketId}`, decision);
+    }
+  }
+
+  public async findByDecisionId(decisionId: string): Promise<DecisionRecord | null> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection<DecisionRecord>('decisions');
+      return col.findOne({ decisionId });
+    }
+    return inMemoryTestStore.decisions.get(decisionId) || null;
+  }
+
+  public async findByTicketId(ticketId: string): Promise<DecisionRecord | null> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection<DecisionRecord>('decisions');
+      return col.findOne({ ticketId });
+    }
+    return inMemoryTestStore.decisions.get(`by_ticket_${ticketId}`) || null;
+  }
+
+  public async findAll(): Promise<DecisionRecord[]> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection<DecisionRecord>('decisions');
+      return col.find({}).toArray();
+    }
+    // Filter out internal ticket alias keys
+    return Array.from(inMemoryTestStore.decisions.values()).filter(
+      (d) => d.decisionId && !d.decisionId.startsWith('by_ticket_')
+    );
+  }
+
+  public async clear(): Promise<void> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection('decisions');
+      await col.deleteMany({});
+    }
+    inMemoryTestStore.decisions.clear();
   }
 }

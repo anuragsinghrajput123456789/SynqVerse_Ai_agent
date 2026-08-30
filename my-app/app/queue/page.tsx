@@ -17,6 +17,7 @@ import {
   Database,
   Shield,
   Layers,
+  Scale,
 } from 'lucide-react';
 import { QueueTicket, QueueStats } from '@/lib/types';
 
@@ -430,6 +431,14 @@ export default function BreakdownQueuePage() {
                       {/* Actions */}
                       <td className="px-5 py-3.5 text-right">
                         <div className="inline-flex items-center gap-2 justify-end">
+                          <Link
+                            href={`/incidents/${t.canonicalTicketId || t.ticketId}`}
+                            className="p-1.5 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 hover:text-white border border-indigo-800/60 rounded-lg text-xs transition-all"
+                            title="Open Decision Engine"
+                          >
+                            <Scale className="w-3.5 h-3.5" />
+                          </Link>
+
                           <Link
                             href={`/queue/${t.canonicalTicketId || t.ticketId}`}
                             className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs transition-all"

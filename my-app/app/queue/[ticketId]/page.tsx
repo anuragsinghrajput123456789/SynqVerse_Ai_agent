@@ -169,6 +169,12 @@ export default function TicketDetailPage({ params }: { params: Promise<{ ticketI
 
           {!ticket.isQuarantined && !ticket.isDuplicate && (
             <div className="flex items-center gap-2">
+              <Link
+                href={`/incidents/${ticket.canonicalTicketId || ticket.ticketId}`}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-indigo-400 hover:text-indigo-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md"
+              >
+                View Operational Decision
+              </Link>
               {ticket.status === 'READY' && (
                 <button
                   onClick={() => handleProcess('PROCESSING')}
