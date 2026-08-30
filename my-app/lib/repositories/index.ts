@@ -5,7 +5,19 @@
 
 import { Db } from 'mongodb';
 import { getMongoDb } from '../db/mongodb';
-import { Vehicle, Driver, Client, BreakdownTicket, ResolvedEntity, Conflict, QuarantineRecord, IngestionStatus } from '../types';
+import {
+  Vehicle,
+  Driver,
+  Client,
+  BreakdownTicket,
+  ResolvedEntity,
+  Conflict,
+  QuarantineRecord,
+  IngestionStatus,
+  QueueTicket,
+  QueueTicketStatus,
+  QueueStats,
+} from '../types';
 
 class InMemoryStore {
   public vehicles = new Map<string, Vehicle>();
@@ -15,6 +27,7 @@ class InMemoryStore {
   public resolvedEntities = new Map<string, ResolvedEntity>();
   public conflicts = new Map<string, Conflict>();
   public quarantine = new Map<string, QuarantineRecord>();
+  public queueTickets = new Map<string, QueueTicket>();
   public status: IngestionStatus | null = null;
 
   public clear() {
@@ -25,6 +38,7 @@ class InMemoryStore {
     this.resolvedEntities.clear();
     this.conflicts.clear();
     this.quarantine.clear();
+    this.queueTickets.clear();
     this.status = null;
   }
 }
@@ -236,5 +250,122 @@ export class QuarantineRepository {
       return col.find({}).toArray();
     }
     return Array.from(inMemoryTestStore.quarantine.values());
+  }
+}
+
+export class QueueRepository {
+  public async upsertQueueTicket(ticket: QueueTicket): Promise<void> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection('breakdown_queue');
+      await col.updateOne(
+        { ticketId: ticket.ticketId },
+        { $set: ticket },
+        { upsert: true }
+      );
+    } else {
+      inMemoryTestStore.queueTickets.set(ticket.ticketId, ticket);
+    }
+  }
+
+  public async findByTicketId(ticketId: string): Promise<QueueTicket | null> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection<QueueTicket>('breakdown_queue');
+      return col.findOne({ ticketId });
+    }
+    return inMemoryTestStore.queueTickets.get(ticketId) || null;
+  }
+
+  public async findByIdempotencyKey(key: string): Promise<QueueTicket | null> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection<QueueTicket>('breakdown_queue');
+      return col.findOne({ idempotencyKey: key });
+    }
+    for (const t of inMemoryTestStore.queueTickets.values()) {
+      if (t.idempotencyKey === key) return t;
+    }
+    return null;
+  }
+
+  public async findAll(): Promise<QueueTicket[]> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection<QueueTicket>('breakdown_queue');
+      return col.find({}).sort({ createdAt: -1 }).toArray();
+    }
+    return Array.from(inMemoryTestStore.queueTickets.values()).sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt)
+    );
+  }
+
+  public async findQuarantined(): Promise<QueueTicket[]> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection<QueueTicket>('breakdown_queue');
+      return col.find({ isQuarantined: true }).toArray();
+    }
+    return Array.from(inMemoryTestStore.queueTickets.values()).filter((t) => t.isQuarantined);
+  }
+
+  public async updateStatus(
+    ticketId: string,
+    status: QueueTicketStatus,
+    processedAt?: string
+  ): Promise<QueueTicket | null> {
+    const db = await getDb();
+    const updatePayload: Partial<QueueTicket> = {
+      status,
+      processedAt: processedAt || new Date().toISOString(),
+    };
+
+    if (db) {
+      const col = db.collection<QueueTicket>('breakdown_queue');
+      await col.updateOne({ ticketId }, { $set: updatePayload });
+      return col.findOne({ ticketId });
+    } else {
+      const ticket = inMemoryTestStore.queueTickets.get(ticketId);
+      if (ticket) {
+        const updated = { ...ticket, ...updatePayload };
+        inMemoryTestStore.queueTickets.set(ticketId, updated);
+        return updated;
+      }
+      return null;
+    }
+  }
+
+  public async getStats(): Promise<QueueStats> {
+    const tickets = await this.findAll();
+    const stats: QueueStats = {
+      total: tickets.length,
+      valid: 0,
+      duplicates: 0,
+      quarantined: 0,
+      ready: 0,
+      processing: 0,
+      completed: 0,
+    };
+
+    for (const t of tickets) {
+      if (t.isQuarantined) stats.quarantined++;
+      else if (t.isDuplicate) stats.duplicates++;
+      else stats.valid++;
+
+      if (t.status === 'READY') stats.ready++;
+      else if (t.status === 'PROCESSING') stats.processing++;
+      else if (t.status === 'COMPLETED') stats.completed++;
+    }
+
+    return stats;
+  }
+
+  public async clear(): Promise<void> {
+    const db = await getDb();
+    if (db) {
+      const col = db.collection('breakdown_queue');
+      await col.deleteMany({});
+    }
+    inMemoryTestStore.queueTickets.clear();
   }
 }

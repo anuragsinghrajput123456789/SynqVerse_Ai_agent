@@ -132,3 +132,43 @@ export interface IngestionStatus {
   quarantinedRecords: QuarantineRecord[];
   timestamp: string;
 }
+
+export type QueueTicketStatus = 'READY' | 'PROCESSING' | 'COMPLETED' | 'DUPLICATE' | 'QUARANTINED';
+
+export interface QueueTicket {
+  ticketId: string;
+  idempotencyKey: string; // BREAKDOWN:{canonicalTicketId}
+  canonicalTicketId: string;
+  createdAt: string;
+  vehicle: string;
+  rawVehicle: string;
+  driverId: string;
+  rawDriverId: string;
+  originHub: string;
+  kmFromOriginHub: number;
+  destination: string;
+  issue: string;
+  severity: string;
+  client: string;
+  status: QueueTicketStatus;
+  originalStatus?: string;
+  resolutionNote?: string;
+  isDuplicate: boolean;
+  duplicateOf?: string;
+  isQuarantined: boolean;
+  quarantineReason?: string;
+  validationErrors?: string[];
+  ingestionRunId: string;
+  sourceFile: string;
+  processedAt?: string;
+}
+
+export interface QueueStats {
+  total: number;
+  valid: number;
+  duplicates: number;
+  quarantined: number;
+  ready: number;
+  processing: number;
+  completed: number;
+}

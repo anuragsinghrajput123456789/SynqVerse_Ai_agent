@@ -4,6 +4,7 @@ import { REDACTED, hasRawPiiLeaks } from '../lib/pii';
 import { answerContextQuery } from '../lib/query';
 import { ConflictResolver, FieldCandidate } from '../lib/conflict-resolution';
 import { EntityResolver } from '../lib/entity-resolution';
+import { closeMongoDb } from '../lib/db/mongodb';
 
 async function runIntegrationTest() {
   console.log('===================================================================');
@@ -123,9 +124,8 @@ async function runIntegrationTest() {
   console.log(` INTEGRATION TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('===================================================================\n');
 
-  if (failed > 0) {
-    process.exit(1);
-  }
+  await closeMongoDb();
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 runIntegrationTest().catch((err) => {

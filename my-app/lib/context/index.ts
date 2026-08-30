@@ -11,9 +11,22 @@ import {
   ResolvedEntityRepository,
   ConflictRepository,
   QuarantineRepository,
+  QueueRepository,
   inMemoryTestStore,
 } from '../repositories';
-import { Vehicle, Driver, Client, BreakdownTicket, ResolvedEntity, Conflict, QuarantineRecord, IngestionStatus } from '../types';
+import {
+  Vehicle,
+  Driver,
+  Client,
+  BreakdownTicket,
+  ResolvedEntity,
+  Conflict,
+  QuarantineRecord,
+  IngestionStatus,
+  QueueTicket,
+  QueueTicketStatus,
+  QueueStats,
+} from '../types';
 
 export class UnifiedContextStore {
   private static instance: UnifiedContextStore;
@@ -25,6 +38,7 @@ export class UnifiedContextStore {
   private entityRepo = new ResolvedEntityRepository();
   private conflictRepo = new ConflictRepository();
   private quarantineRepo = new QuarantineRepository();
+  private queueRepo = new QueueRepository();
 
   public static getInstance(): UnifiedContextStore {
     if (!UnifiedContextStore.instance) {
@@ -59,6 +73,38 @@ export class UnifiedContextStore {
 
   public async saveQuarantine(q: QuarantineRecord) {
     await this.quarantineRepo.upsertQuarantine(q);
+  }
+
+  public async saveQueueTicket(qt: QueueTicket) {
+    await this.queueRepo.upsertQueueTicket(qt);
+  }
+
+  public async getQueueTicket(ticketId: string): Promise<QueueTicket | null> {
+    return this.queueRepo.findByTicketId(ticketId);
+  }
+
+  public async getQueueTicketByIdempotencyKey(key: string): Promise<QueueTicket | null> {
+    return this.queueRepo.findByIdempotencyKey(key);
+  }
+
+  public async getAllQueueTickets(): Promise<QueueTicket[]> {
+    return this.queueRepo.findAll();
+  }
+
+  public async getQuarantinedQueueTickets(): Promise<QueueTicket[]> {
+    return this.queueRepo.findQuarantined();
+  }
+
+  public async updateQueueTicketStatus(
+    ticketId: string,
+    status: QueueTicketStatus,
+    processedAt?: string
+  ): Promise<QueueTicket | null> {
+    return this.queueRepo.updateStatus(ticketId, status, processedAt);
+  }
+
+  public async getQueueStats(): Promise<QueueStats> {
+    return this.queueRepo.getStats();
   }
 
   public async getVehicle(query: string): Promise<Vehicle | null> {
