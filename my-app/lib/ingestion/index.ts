@@ -193,7 +193,8 @@ export async function runIngestion(options: IngestionOptions = {}): Promise<Inge
   const maintPath = path.join(dataDir, 'maintenance_log.xlsx');
   if (fs.existsSync(maintPath)) {
     filesDiscovered.push('maintenance_log.xlsx');
-    const workbook = XLSX.readFile(maintPath);
+    const fileBuffer = fs.readFileSync(maintPath);
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheetData = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName]);
 
