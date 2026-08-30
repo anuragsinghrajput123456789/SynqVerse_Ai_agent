@@ -8,10 +8,11 @@
     "start": "next start",
     "lint": "eslint",
     "ingest": "tsx scripts/run-ingestion.ts",
-    "test": "tsx tests/part-a-integration.test.ts && tsx tests/module-1-queue.test.ts && tsx tests/module-2-decision.test.ts && tsx tests/module-3-vehicle-selection.test.ts",
+    "test": "tsx tests/part-a-integration.test.ts && tsx tests/module-1-queue.test.ts && tsx tests/module-2-decision.test.ts && tsx tests/module-3-vehicle-selection.test.ts && tsx tests/module-4-work-orders.test.ts",
     "test:queue": "tsx tests/module-1-queue.test.ts",
     "test:decision": "tsx tests/module-2-decision.test.ts",
-    "test:selection": "tsx tests/module-3-vehicle-selection.test.ts"
+    "test:selection": "tsx tests/module-3-vehicle-selection.test.ts",
+    "test:workorders": "tsx tests/module-4-work-orders.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",
