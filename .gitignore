@@ -1,6 +1,5 @@
 # dependencies
 /node_modules
-my-app/node_modules
 /.pnp
 .pnp.js
 
@@ -8,8 +7,8 @@ my-app/node_modules
 /coverage
 
 # next.js
-/my-app/.next/
-my-app/out/
+/.next/
+/out/
 
 # production
 /build
@@ -30,3 +29,7 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# misc
+.DS_Store
+*.pem

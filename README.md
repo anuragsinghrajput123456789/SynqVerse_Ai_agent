@@ -13,7 +13,7 @@
 
 <br/>
 
-<img src="public/assets/grafity_hero_banner.jpg" alt="Grafity Enterprise Logistics AI Banner" width="100%" style="border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);" />
+<img src="./public/assets/grafity_hero_banner.jpg" alt="Grafity Enterprise Logistics AI Banner" width="100%" />
 
 <br/>
 
@@ -30,7 +30,7 @@
 ## 🌟 Core Capabilities
 
 ### 1. Deterministic Incident & Dispatch Engine (13 Rules)
-- **13 Authoritative Operational Rules (R-001 through R-013)** enforced deterministically without hallucination risk.
+- **13 Authoritative Operational Rules (R-001 through R-013)** ([RULES.md](RULES.md)) enforced deterministically without hallucination risk.
 - **Automated Replacement Vehicle Candidate Ranking**: Evaluates distance from breakdown, vehicle model, capacity, and current driver duty status.
 - **SLA Violation Prevention**: Prioritizes Tier-1 clients (e.g., Shakti Cement 45m SLA, Reliance 30m SLA) with automated escalation triggers.
 - **Two-Phase Human Approvals**: Enforces mandatory supervisor authorization for high-cost dispatches while automating safe routine workflows.
@@ -46,7 +46,7 @@
 ## 🛰️ Driver Safety & Real-Time Location
 
 <div align="center">
-  <img src="public/assets/grafity_live_map_sos.jpg" alt="Grafity Real-Time Map and Emergency SOS" width="100%" style="border-radius: 14px;" />
+  <img src="./public/assets/grafity_live_map_sos.jpg" alt="Grafity Real-Time Map and Emergency SOS" width="100%" />
 </div>
 
 ### 🚨 3-Second Press-and-Hold Driver Emergency SOS
@@ -65,7 +65,7 @@
 ## 🎙️ Grounded Copilot & Voice Agent
 
 <div align="center">
-  <img src="public/assets/grafity_copilot_voice.jpg" alt="Grafity Grounded Copilot and Multilingual Voice AI" width="100%" style="border-radius: 14px;" />
+  <img src="./public/assets/grafity_copilot_voice.jpg" alt="Grafity Grounded Copilot and Multilingual Voice AI" width="100%" />
 </div>
 
 - **Operations Copilot RAG**: Real-time grounded question answering across dispatch rosters, driver contracts, and maintenance logs with clickable source citation drawers.

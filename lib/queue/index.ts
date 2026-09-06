@@ -73,9 +73,8 @@ export class BreakdownQueueService {
   public async ingestTickets(options: TicketIngestionOptions = {}): Promise<TicketIngestionResult> {
     await this.initResolvers();
 
-    const baseDir = options.dataDir || path.join(process.cwd(), '../data');
-    const fallbackDir = path.join(process.cwd(), 'data');
-    const dataDir = fs.existsSync(baseDir) ? baseDir : fallbackDir;
+    const primaryDir = path.join(process.cwd(), 'data');
+    const dataDir = options.dataDir || primaryDir;
     const ingestionRunId = options.runId || `queue_run_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const sourceFileName = options.sourceFile || 'tickets.json';
 
@@ -84,7 +83,9 @@ export class BreakdownQueueService {
     if (options.customTickets) {
       rawList = options.customTickets;
     } else {
-      const ticketsPath = path.join(dataDir, sourceFileName);
+      const ticketsPath = options.dataDir 
+        ? path.join(/*turbopackIgnore: true*/ options.dataDir, sourceFileName)
+        : path.join(process.cwd(), 'data', sourceFileName);
       if (fs.existsSync(ticketsPath)) {
         const content = fs.readFileSync(ticketsPath, 'utf-8');
         rawList = JSON.parse(content) as Record<string, unknown>[];

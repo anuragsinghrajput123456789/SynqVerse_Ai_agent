@@ -44,9 +44,9 @@ let cachedTripsRecords: Array<{
 }> | null = null;
 
 function getDataDir(): string {
-  const baseDir = path.join(process.cwd(), '../data');
-  const fallbackDir = path.join(process.cwd(), 'data');
-  return fs.existsSync(baseDir) ? baseDir : fallbackDir;
+  const primaryDir = path.join(process.cwd(), 'data');
+  const fallbackDir = path.join(process.cwd(), '../data');
+  return fs.existsSync(primaryDir) ? primaryDir : fallbackDir;
 }
 
 function loadMaintenanceRecords(): Array<{
