@@ -5,37 +5,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { answerCopilotQuery } from '@/lib/copilot';
+import { rateLimiters, getClientIdentifier } from '@/lib/security/rateLimit';
 
-// Lightweight in-memory rate limiter: max 60 requests per minute per client IP
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-const rateLimits = new Map<string, RateLimitEntry>();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 60;
-
-function checkRateLimit(clientIp: string): boolean {
-  const now = Date.now();
-  const entry = rateLimits.get(clientIp);
-
-  if (!entry || now > entry.resetAt) {
-    rateLimits.set(clientIp, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-
-  if (entry.count >= MAX_REQUESTS_PER_WINDOW) {
-    return false;
-  }
-
-  entry.count++;
-  return true;
-}
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'anonymous';
-    if (!checkRateLimit(clientIp)) {
+    const clientIp = getClientIdentifier(req);
+    const limit = rateLimiters.ai.check(clientIp);
+    if (!limit.allowed) {
       return NextResponse.json(
         {
           answer: 'Rate limit exceeded. Please wait a moment before asking another question.',
@@ -62,31 +40,52 @@ export async function POST(req: NextRequest) {
           rules: [],
           conflicts: [],
           confidence: 'low',
-          error: 'Expected JSON object in request body',
+          error: 'Invalid payload: JSON object expected',
         },
         { status: 400 }
       );
     }
 
-    const result = await answerCopilotQuery(body);
-
-    if (result.status === 'error' && result.error?.includes('Invalid question')) {
-      return NextResponse.json(result, { status: 400 });
+    const question = String(body.question || body.query || body.message || '').trim();
+    if (!question) {
+      return NextResponse.json(
+        {
+          answer: "Please provide a valid question or query (e.g. 'Why was TRK-104 rejected?').",
+          status: 'insufficient_data',
+          sources: [],
+          entities: [],
+          rules: [],
+          conflicts: [],
+          confidence: 'low',
+        },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json(result, { status: 200 });
+    const conversationHistory = Array.isArray(body.conversationHistory)
+      ? body.conversationHistory
+      : [];
+
+    const response = await answerCopilotQuery({
+      question,
+      conversationHistory,
+    });
+
+    return NextResponse.json(response);
   } catch (err: unknown) {
-    console.error('Unhandled exception in /api/copilot:', err instanceof Error ? err.message : 'Unknown error');
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error('Error in /api/copilot:', errorMsg);
+
     return NextResponse.json(
       {
-        answer: 'An unexpected internal error occurred while processing your query.',
+        answer: 'An operational error occurred while generating copilot analysis. Please retry.',
         status: 'error',
         sources: [],
         entities: [],
         rules: [],
         conflicts: [],
         confidence: 'low',
-        error: 'Internal server error',
+        error: errorMsg,
       },
       { status: 500 }
     );

@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build --experimental-build-mode compile",
+    "build": "node scripts/build.js",
     "start": "next start",
     "lint": "eslint",
     "ingest": "tsx scripts/run-ingestion.ts",
-    "test": "tsx tests/part-a-integration.test.ts && tsx tests/module-1-queue.test.ts && tsx tests/module-2-decision.test.ts && tsx tests/module-3-vehicle-selection.test.ts && tsx tests/module-4-work-orders.test.ts && tsx tests/module-5-ai-drafting.test.ts && tsx tests/module-6-approvals.test.ts && tsx tests/module-7-audit.test.ts && tsx tests/module-8-pipeline.test.ts && tsx tests/copilot-rag.test.ts && tsx tests/voice-integration.test.ts",
+    "test": "tsx tests/part-a-integration.test.ts && tsx tests/module-1-queue.test.ts && tsx tests/module-2-decision.test.ts && tsx tests/module-3-vehicle-selection.test.ts && tsx tests/module-4-work-orders.test.ts && tsx tests/module-5-ai-drafting.test.ts && tsx tests/module-6-approvals.test.ts && tsx tests/module-7-audit.test.ts && tsx tests/module-8-pipeline.test.ts && tsx tests/copilot-rag.test.ts && tsx tests/voice-integration.test.ts && tsx tests/chat-pipeline.test.ts && tsx tests/production-hardening.test.ts",
     "test:queue": "tsx tests/module-1-queue.test.ts",
     "test:decision": "tsx tests/module-2-decision.test.ts",
     "test:selection": "tsx tests/module-3-vehicle-selection.test.ts",
@@ -19,10 +19,14 @@
     "test:pipeline": "tsx tests/module-8-pipeline.test.ts",
     "test:copilot": "tsx tests/copilot-rag.test.ts",
     "test:voice": "tsx tests/voice-integration.test.ts",
-    "test:surprise": "tsx tests/surprise-ticket-pipeline.test.ts"
+    "test:chat": "tsx tests/chat-pipeline.test.ts",
+    "test:surprise": "tsx tests/surprise-ticket-pipeline.test.ts",
+    "test:hardening": "tsx tests/production-hardening.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",
+    "@google/generative-ai": "^0.24.1",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.37.0",
     "mongodb": "^7.6.0",
     "next": "16.3.3",
@@ -34,6 +38,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",

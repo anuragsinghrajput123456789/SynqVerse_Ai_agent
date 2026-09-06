@@ -3,75 +3,85 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShieldCheck, Layers, CheckSquare, Activity, AlertCircle } from 'lucide-react';
+import { Zap, Search, Menu, X } from 'lucide-react';
+import NavLinks from './navbar/NavLinks';
+import NavUserMenu from './navbar/NavUserMenu';
+import NavMobileMenu from './navbar/NavMobileMenu';
 
-export default function Navbar() {
+interface NavbarProps {
+  onOpenCommandPalette?: () => void;
+}
+
+export default function Navbar({ onOpenCommandPalette }: NavbarProps) {
   const pathname = usePathname();
-  const [activeRoute, setActiveRoute] = useState('/dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Close mobile menu on route change
   useEffect(() => {
-    if (pathname) {
-      setActiveRoute(pathname);
-    }
+    setMobileMenuOpen(false);
   }, [pathname]);
 
-  const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: Layers },
-    { name: 'Tickets', href: '/tickets', icon: AlertCircle },
-    { name: 'Approvals', href: '/approvals', icon: CheckSquare },
-    { name: 'Audit Trail', href: '/audit', icon: Activity },
-  ];
-
   return (
-    <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo / Title */}
-          <div className="flex items-center space-x-3">
-            <div className="bg-indigo-600 p-2 rounded-lg text-white shadow-md shadow-indigo-500/20">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <Link href="/dashboard" className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                <span>Grafity</span>
-                <span className="text-xs bg-indigo-950 text-indigo-300 border border-indigo-700/50 px-2 py-0.5 rounded font-mono uppercase">
-                  Ops Console
+    <header className="sticky top-0 z-40 bg-[#080c18]/90 backdrop-blur-xl border-b border-white/[0.08] shadow-2xl">
+      <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 gap-4">
+          {/* 1. Left: Brand Mark */}
+          <div className="flex items-center gap-3 shrink-0">
+            <Link href="/" className="flex items-center gap-2 group">
+              <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-400 p-[1.5px] shadow-md shadow-indigo-600/30 group-hover:scale-105 transition-transform">
+                <div className="w-full h-full bg-[#080c18] rounded-[7px] flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-cyan-300 fill-cyan-400/20" />
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-base font-black tracking-tight text-white">
+                  Grafity
                 </span>
-              </Link>
-              <p className="text-xs text-slate-400">Autonomous Incident Resolution & Operational Dispatch</p>
-            </div>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  OPS
+                </span>
+              </div>
+            </Link>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="flex space-x-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeRoute === item.href || (item.href !== '/dashboard' && activeRoute.startsWith(item.href));
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-slate-800 text-indigo-400 border border-slate-700'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          {/* 2. Center: Minimal Horizontal Navigation (Desktop) */}
+          <NavLinks pathname={pathname} />
 
-          {/* System Status Pill */}
-          <div className="hidden sm:flex items-center space-x-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-slate-300 font-mono">Engine: ONLINE</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-indigo-400 font-mono">PII: MASKED</span>
+          {/* 3. Right: Command Search, User Profile & Mobile Toggle */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Minimal Command Palette Trigger (Ctrl + K) */}
+            <button
+              onClick={onOpenCommandPalette}
+              className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-white/[0.08] hover:border-indigo-500/30 rounded-lg text-xs transition cursor-pointer"
+              title="Search operations (Ctrl+K)"
+            >
+              <Search className="w-3.5 h-3.5 text-slate-400" />
+              <span className="hidden sm:inline text-xs text-slate-400">Search</span>
+              <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.2 text-[10px] bg-slate-800 border border-slate-700 rounded text-slate-400 font-mono">
+                Ctrl K
+              </kbd>
+            </button>
+
+            {/* Profile Pill & Menu */}
+            <NavUserMenu pathname={pathname} />
+
+            {/* Mobile Menu Hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-1.5 rounded-lg bg-slate-900/60 text-slate-300 hover:text-white border border-white/[0.08] transition"
+              aria-label="Toggle Navigation Menu"
+            >
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Horizontal Drawer */}
+        <NavMobileMenu
+          isOpen={mobileMenuOpen}
+          pathname={pathname}
+          onClose={() => setMobileMenuOpen(false)}
+        />
       </div>
     </header>
   );

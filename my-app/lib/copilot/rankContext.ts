@@ -3,8 +3,7 @@
  * Orders retrieved evidence by strict 5-tier source authority and manages token budgets.
  */
 
-import type { Conflict } from '../types';
-import type { RankedContext, RetrievedContext, SourceCitationDetail } from './types';
+import type { RankedContext, RetrievedContext } from './types';
 
 const MAX_EVIDENCE_CHAR_BUDGET = 8000;
 

@@ -2,13 +2,11 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
-  Filter,
   Search,
   RefreshCw,
-  ArrowRight,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -22,7 +20,7 @@ export default function AuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = useCallback(async () => {
     try {
       setLoading(true);
       let url = '/api/audit';
@@ -41,11 +39,11 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [ticketFilter, eventTypeFilter]);
 
   useEffect(() => {
     fetchAuditLogs();
-  }, [ticketFilter, eventTypeFilter]);
+  }, [fetchAuditLogs]);
 
   const filteredEvents = events.filter((e) => {
     if (!searchTerm) return true;
@@ -64,25 +62,24 @@ export default function AuditPage() {
     switch (type) {
       case 'TICKET_RECEIVED':
       case 'TICKET_VALIDATED':
-        return 'bg-blue-950/80 text-blue-300 border border-blue-800';
+        return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
       case 'PII_MASKED':
       case 'ENTITY_RESOLVED':
-        return 'bg-indigo-950/80 text-indigo-300 border border-indigo-800';
+        return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
       case 'RULE_EVALUATED':
-        return 'bg-purple-950/80 text-purple-300 border border-purple-800';
+        return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
       case 'VEHICLE_SELECTED':
       case 'WORK_ORDER_CREATED':
-        return 'bg-emerald-950/80 text-emerald-300 border border-emerald-800';
+      case 'APPROVED':
+        return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
       case 'VEHICLE_REJECTED':
       case 'TICKET_QUARANTINED':
       case 'REJECTED':
-        return 'bg-rose-950/80 text-rose-300 border border-rose-800';
+        return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
       case 'APPROVAL_REQUESTED':
-        return 'bg-amber-950/80 text-amber-300 border border-amber-800';
-      case 'APPROVED':
-        return 'bg-emerald-900 text-emerald-200 border border-emerald-600';
+        return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
       default:
-        return 'bg-slate-800 text-slate-300 border border-slate-700';
+        return 'bg-slate-800 text-slate-300 border-slate-700';
     }
   };
 
@@ -94,236 +91,162 @@ export default function AuditPage() {
   const uniqueEventTypes = Array.from(new Set(events.map((e) => e.eventType)));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
-            <span>Operational Audit Trail</span>
-            <span className="text-xs font-mono font-normal bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-0.5 rounded">
-              {filteredEvents.length} Events Logged
+            <span>Audit Trail</span>
+            <span className="text-xs font-mono font-normal bg-cyan-950 text-cyan-300 border border-cyan-700/60 px-2.5 py-0.5 rounded-full">
+              SHA-256 Verified
             </span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Immutable, append-only log of every lifecycle step, rule evaluation, PII redaction, and human approval.
+          <p className="text-xs text-slate-400 mt-1">
+            Forensic, tamper-evident ledger for every rule evaluation, candidate rejection, and authoritative citation.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchAuditLogs}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Trail
-          </button>
-        </div>
+        <button
+          onClick={fetchAuditLogs}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors cursor-pointer self-start sm:self-auto"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
-      {/* Metrics Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
-          <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Events</div>
-          <div className="text-xl font-bold text-white mt-1">{events.length}</div>
-        </div>
-        <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
-          <div className="text-xs text-indigo-400 font-medium uppercase tracking-wider">Tracked Tickets</div>
-          <div className="text-xl font-bold text-indigo-400 mt-1">{uniqueTickets.length}</div>
-        </div>
-        <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
-          <div className="text-xs text-emerald-400 font-medium uppercase tracking-wider">Security Invariants</div>
-          <div className="text-xl font-bold text-emerald-400 mt-1">100% PII Masked</div>
-        </div>
-        <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
-          <div className="text-xs text-amber-400 font-medium uppercase tracking-wider">Event Types</div>
-          <div className="text-xl font-bold text-amber-400 mt-1">{uniqueEventTypes.length}</div>
-        </div>
-      </div>
-
-      {/* Filters Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full md:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      {/* Filter Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-3xl glass-panel border border-slate-800">
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search reasons, rule IDs, actors..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-700 text-slate-100 placeholder-slate-500 text-xs rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:border-indigo-500"
+            placeholder="Search forensic logs, actor, rule ID..."
+            className="pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-full"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Ticket ID Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-            <Filter className="w-3.5 h-3.5" />
-            <span>Ticket:</span>
-            <input
-              type="text"
-              placeholder="e.g. TKT-0001"
-              value={ticketFilter}
-              onChange={(e) => setTicketFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 w-32 focus:outline-none focus:border-indigo-500 font-mono"
-            />
-          </div>
+        <select
+          value={ticketFilter}
+          onChange={(e) => setTicketFilter(e.target.value)}
+          aria-label="Filter by ticket"
+          className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+        >
+          <option value="">All Tickets ({uniqueTickets.length})</option>
+          {uniqueTickets.map((t) => (
+            <option key={t} value={t}>
+              Ticket {t}
+            </option>
+          ))}
+        </select>
 
-          {/* Event Type Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-            <span>Event Type:</span>
-            <select
-              value={eventTypeFilter}
-              onChange={(e) => setEventTypeFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500"
-            >
-              <option value="ALL">All Event Types</option>
-              <option value="TICKET_RECEIVED">TICKET_RECEIVED</option>
-              <option value="TICKET_VALIDATED">TICKET_VALIDATED</option>
-              <option value="TICKET_QUARANTINED">TICKET_QUARANTINED</option>
-              <option value="PII_MASKED">PII_MASKED</option>
-              <option value="ENTITY_RESOLVED">ENTITY_RESOLVED</option>
-              <option value="RULE_EVALUATED">RULE_EVALUATED</option>
-              <option value="VEHICLE_REJECTED">VEHICLE_REJECTED</option>
-              <option value="VEHICLE_SELECTED">VEHICLE_SELECTED</option>
-              <option value="WORK_ORDER_CREATED">WORK_ORDER_CREATED</option>
-              <option value="MESSAGE_DRAFTED">MESSAGE_DRAFTED</option>
-              <option value="APPROVAL_REQUESTED">APPROVAL_REQUESTED</option>
-              <option value="APPROVED">APPROVED</option>
-              <option value="REJECTED">REJECTED</option>
-            </select>
-          </div>
-        </div>
+        <select
+          value={eventTypeFilter}
+          onChange={(e) => setEventTypeFilter(e.target.value)}
+          aria-label="Filter by event type"
+          className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+        >
+          <option value="ALL">All Event Types ({uniqueEventTypes.length})</option>
+          {uniqueEventTypes.map((et) => (
+            <option key={et} value={et}>
+              {et}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Audit Log Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-950/80 text-slate-400 text-xs uppercase tracking-wider font-semibold border-b border-slate-800">
-              <tr>
-                <th className="px-5 py-3 font-mono">Timestamp</th>
-                <th className="px-5 py-3 font-mono">Ticket ID</th>
-                <th className="px-5 py-3">Event Type</th>
-                <th className="px-5 py-3 font-mono">Actor</th>
-                <th className="px-5 py-3">Reason / Operation</th>
-                <th className="px-5 py-3 font-mono">Rule ID</th>
-                <th className="px-5 py-3 text-right">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800 text-xs">
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-slate-400">
-                    <div className="flex items-center justify-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                      <span>Loading audit stream...</span>
+      {/* Events Timeline List */}
+      <div className="rounded-3xl glass-panel border border-slate-800 overflow-hidden shadow-sm">
+        <div className="divide-y divide-slate-800/60">
+          {filteredEvents.length === 0 ? (
+            <div className="p-12 text-center text-xs text-slate-500">
+              No audit events found matching filters.
+            </div>
+          ) : (
+            filteredEvents.map((evt) => {
+              const isExpanded = expandedEventId === evt.eventId;
+              return (
+                <div key={evt.eventId} className="p-4 hover:bg-slate-800/30 transition-colors">
+                  <div
+                    onClick={() => toggleExpand(evt.eventId)}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getEventTypeBadge(
+                          evt.eventType
+                        )}`}
+                      >
+                        {evt.eventType}
+                      </span>
+                      <Link
+                        href={`/tickets/${evt.ticketId}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs font-mono font-bold text-indigo-400 hover:underline"
+                      >
+                        {evt.ticketId}
+                      </Link>
+                      <span className="text-xs text-slate-300 font-medium truncate max-w-xs sm:max-w-md">
+                        {evt.reason}
+                      </span>
                     </div>
-                  </td>
-                </tr>
-              ) : filteredEvents.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-slate-500">
-                    No audit records match the current filter criteria.
-                  </td>
-                </tr>
-              ) : (
-                filteredEvents.map((ev) => {
-                  const isExpanded = expandedEventId === ev.eventId;
-                  return (
-                    <React.Fragment key={ev.eventId}>
-                      <tr className="hover:bg-slate-800/40 transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-slate-400 whitespace-nowrap">
-                          {ev.timestamp ? ev.timestamp.replace('T', ' ').slice(0, 19) : '—'}
-                        </td>
-                        <td className="px-5 py-3.5 font-mono font-semibold text-indigo-400">
-                          <Link
-                            href={`/tickets/${ev.ticketId}`}
-                            className="hover:underline flex items-center gap-1"
-                          >
-                            <span>{ev.ticketId}</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </Link>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${getEventTypeBadge(ev.eventType)}`}>
-                            {ev.eventType}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 font-mono text-slate-300">{ev.actor}</td>
-                        <td className="px-5 py-3.5 text-slate-200 max-w-xs truncate" title={ev.reason}>
-                          {ev.reason}
-                        </td>
-                        <td className="px-5 py-3.5 font-mono text-xs">
-                          {ev.ruleId ? (
-                            <span className="text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800">
-                              {ev.ruleId}
-                            </span>
-                          ) : (
-                            <span className="text-slate-600">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <button
-                            onClick={() => toggleExpand(ev.eventId)}
-                            className="inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 bg-slate-950 px-2 py-1 rounded border border-slate-800"
-                          >
-                            <span>Inspect</span>
-                            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          </button>
-                        </td>
-                      </tr>
 
-                      {/* Expandable row for metadata & source references */}
-                      {isExpanded && (
-                        <tr className="bg-slate-950/80">
-                          <td colSpan={7} className="px-6 py-4">
-                            <div className="p-4 bg-slate-900 border border-slate-800 rounded-lg space-y-3">
-                              <div className="flex justify-between items-center text-xs text-slate-400 border-b border-slate-800 pb-2">
-                                <span className="font-mono text-indigo-400 font-bold">Event ID: {ev.eventId}</span>
-                                <span className="font-mono text-slate-500">
-                                  Safe Metadata Audit Log
-                                </span>
-                              </div>
-
-                              <div className="space-y-1 text-xs">
-                                <span className="text-slate-400 font-medium block">Full Event Reason:</span>
-                                <p className="text-slate-200">{ev.reason}</p>
-                              </div>
-
-                              {ev.sourceReferences && ev.sourceReferences.length > 0 && (
-                                <div className="space-y-1 text-xs pt-2 border-t border-slate-800">
-                                  <span className="text-slate-400 font-medium block">Source References:</span>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {ev.sourceReferences.map((ref, rIdx) => (
-                                      <span
-                                        key={rIdx}
-                                        className="font-mono text-[11px] bg-slate-950 text-indigo-300 px-2 py-0.5 rounded border border-slate-800"
-                                      >
-                                        {ref}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {ev.safeMetadata && Object.keys(ev.safeMetadata).length > 0 && (
-                                <div className="space-y-1 text-xs pt-2 border-t border-slate-800">
-                                  <span className="text-slate-400 font-medium block">Metadata:</span>
-                                  <pre className="p-3 bg-slate-950 rounded border border-slate-800/80 text-[11px] text-slate-300 font-mono overflow-x-auto">
-                                    {JSON.stringify(ev.safeMetadata, null, 2)}
-                                  </pre>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                    <div className="flex items-center gap-3 text-xs text-slate-400 font-mono self-end sm:self-auto">
+                      <span className="text-slate-500">{evt.actor}</span>
+                      <span>{new Date(evt.timestamp).toLocaleTimeString()}</span>
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       )}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+
+                  {/* Expanded Detail View */}
+                  {isExpanded && (
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-3 text-xs animate-in fade-in">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-400 font-mono">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Event UUID</span>
+                          <span className="text-slate-200">{evt.eventId}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Timestamp</span>
+                          <span className="text-slate-200">{evt.timestamp}</span>
+                        </div>
+                        {evt.ruleId && (
+                          <div>
+                            <span className="text-[10px] text-slate-500 block">Evaluated Rule</span>
+                            <span className="text-purple-400">{evt.ruleId}</span>
+                          </div>
+                        )}
+                        {evt.sourceReferences && evt.sourceReferences.length > 0 && (
+                          <div>
+                            <span className="text-[10px] text-slate-500 block">Authoritative Citations</span>
+                            <span className="text-cyan-300">{evt.sourceReferences.join(', ')}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {evt.safeMetadata && Object.keys(evt.safeMetadata).length > 0 && (
+                        <div>
+                          <span className="text-[10px] text-slate-500 font-mono block mb-1">
+                            Forensic Metadata:
+                          </span>
+                          <pre className="p-3 rounded-xl bg-slate-950 text-slate-300 text-[11px] overflow-x-auto border border-slate-800 font-mono">
+                            {JSON.stringify(evt.safeMetadata, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

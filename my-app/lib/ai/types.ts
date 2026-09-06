@@ -71,3 +71,11 @@ export interface DraftClientMessageResult {
   error?: string;
   piiAudited: boolean;
 }
+
+export interface Fact {
+  text: string;
+  source_ref: string;
+  relevanceScore?: number;
+  metadata?: Record<string, unknown>;
+}
+

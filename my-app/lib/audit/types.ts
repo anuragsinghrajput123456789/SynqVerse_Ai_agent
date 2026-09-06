@@ -17,7 +17,13 @@ export type AuditEventType =
   | 'MESSAGE_DRAFTED'
   | 'APPROVAL_REQUESTED'
   | 'APPROVED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'CHAT_QUERY'
+  | 'SOS_TRIGGERED'
+  | 'SOS_ACKNOWLEDGED'
+  | 'SOS_RESPONDING'
+  | 'SOS_RESOLVED';
+
 
 export interface AuditEvent {
   eventId: string;

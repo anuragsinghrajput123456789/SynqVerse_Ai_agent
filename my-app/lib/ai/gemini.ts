@@ -1,10 +1,10 @@
-/**
- * Gemini AI Integration & Response Validation Service
- */
-
 import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
 import { SourceCitation } from '../types';
+import { Fact } from './types';
+
+export * from './types';
 
 export const GroundedAnswerSchema = z.object({
   answer: z.string().min(1),
@@ -13,6 +13,7 @@ export const GroundedAnswerSchema = z.object({
 });
 
 export type GroundedAnswerPayload = z.infer<typeof GroundedAnswerSchema>;
+
 
 export const MechanicNoteInterpretationSchema = z.object({
   issueCategory: z.string(),
@@ -177,3 +178,77 @@ ${question}`;
     validCitations: validCitations.length > 0 ? validCitations : availableCitations,
   };
 }
+
+let customGenerateAnswerHandler: ((prompt: string, contextFacts: Fact[]) => Promise<string>) | null = null;
+
+export function __setGenerateAnswerHandler(
+  handler: ((prompt: string, contextFacts: Fact[]) => Promise<string>) | null
+) {
+  customGenerateAnswerHandler = handler;
+}
+
+/**
+ * A thin wrapper around the Gemini API using @google/generative-ai.
+ * Answers questions STRICTLY using only the provided facts.
+ * Explicitly returns "I don't have enough information" if facts don't cover the question.
+ * Prohibits free reasoning, tool-calling, and agent behavior.
+ */
+export async function generateAnswer(prompt: string, contextFacts: Fact[]): Promise<string> {
+  if (customGenerateAnswerHandler) {
+    return customGenerateAnswerHandler(prompt, contextFacts);
+  }
+
+  if (!prompt || !prompt.trim() || !contextFacts || contextFacts.length === 0) {
+    return "I don't have enough information.";
+  }
+
+  const formattedFacts = contextFacts
+
+    .map((fact, index) => `[Fact ${index + 1}] (Source: ${fact.source_ref}): ${fact.text}`)
+    .join('\n');
+
+  const fullPrompt = `You are a strict, grounded AI assistant for Meridian Freight operations.
+Answer the user's question using ONLY the provided facts below.
+
+CRITICAL INSTRUCTIONS:
+1. Answer ONLY using the facts provided in the FACTS section below.
+2. If the provided facts do not contain enough information to answer the question completely and accurately, you MUST explicitly output: "I don't have enough information."
+3. Do NOT make assumptions, do NOT speculate, do NOT use external knowledge, and do NOT use free reasoning beyond what is directly stated.
+4. Do NOT attempt to call tools, execute actions, or behave like an autonomous agent.
+5. Keep your answer direct, clear, factual, and concise.
+
+FACTS:
+${formattedFacts}
+
+USER QUESTION:
+${prompt.trim()}`;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    // Deterministic fallback when API key is not configured (e.g. offline unit testing)
+    return `Based on records:\n${contextFacts.map((f) => f.text).join('\n')}`;
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    const text = response.text()?.trim() || '';
+
+    if (
+      !text ||
+      text.toLowerCase().includes("don't have enough information") ||
+      text.toLowerCase().includes('insufficient data')
+    ) {
+      return "I don't have enough information.";
+    }
+
+    return text;
+  } catch (err) {
+    console.warn('Gemini API call failed in generateAnswer:', err);
+    // When Gemini errors or fails, return grounded fallback from facts
+    return `Based on records:\n${contextFacts.map((f) => f.text).join('\n')}`;
+  }
+}
+

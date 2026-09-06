@@ -9,6 +9,9 @@ import { UnifiedContextStore } from '../context';
 import { maskPii } from '../pii';
 import { generateValidatedGroundedAnswer } from '../ai/gemini';
 
+export * from './chat';
+
+
 export async function answerContextQuery(question: string): Promise<QueryResult> {
   if (!question || typeof question !== 'string' || question.trim() === '') {
     return {

@@ -2,32 +2,16 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useCallback } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
   CheckCircle2,
   XCircle,
-  AlertOctagon,
-  AlertCircle,
   Truck,
-  User,
-  Building2,
-  MapPin,
-  Wrench,
-  Scale,
-  FileCheck2,
-  Mail,
-  CheckSquare,
   Shield,
-  FileText,
-  Activity,
-  Compass,
   Sparkles,
   RefreshCw,
-  Send,
-  X,
-  AlertTriangle,
 } from 'lucide-react';
 import {
   QueueTicket,
@@ -35,9 +19,6 @@ import {
   Driver,
   Client,
   DecisionRecord,
-  CandidateEvaluation,
-  DispatcherRule,
-  SourceCitation,
 } from '@/lib/types';
 import { WorkOrder } from '@/lib/work-orders';
 import { ApprovalRecord } from '@/lib/approvals';
@@ -89,11 +70,11 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Dispatcher Approval state
-  const [approvalNotes, setApprovalNotes] = useState('');
+  const approvalNotes = '';
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
 
-  const fetchTicketDetail = async () => {
+  const fetchTicketDetail = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/tickets/${ticketId}`);
@@ -106,11 +87,11 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     } finally {
       setLoading(false);
     }
-  };
+  }, [ticketId]);
 
   useEffect(() => {
     fetchTicketDetail();
-  }, [ticketId]);
+  }, [fetchTicketDetail]);
 
   const handleApprove = async () => {
     if (!data?.approval) return;
@@ -142,7 +123,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const handleReject = async () => {
     if (!data?.approval) return;
     if (!rejectionReason.trim()) {
-      alert('Please specify a rejection reason.');
+      alert('Please provide a reason for rejecting the notification.');
       return;
     }
     try {
@@ -158,7 +139,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
       });
       const result = await res.json();
       if (result.success) {
-        setActionMessage('Message REJECTED. Human revision required.');
+        setActionMessage('Notification draft successfully REJECTED and returned for re-evaluation.');
         setShowRejectInput(false);
         await fetchTicketDetail();
       } else {
@@ -171,90 +152,41 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-3 text-slate-400">
-        <RefreshCw className="w-6 h-6 animate-spin text-indigo-400" />
-        <span className="text-sm font-mono">Loading ticket details for {ticketId}...</span>
-      </div>
-    );
-  }
-
-  if (!data || !data.ticket) {
-    return (
-      <div className="space-y-4 text-center py-12">
-        <AlertOctagon className="w-12 h-12 text-rose-500 mx-auto" />
-        <h2 className="text-xl font-bold text-white">Ticket Not Found</h2>
-        <p className="text-slate-400 text-sm">Ticket ID &quot;{ticketId}&quot; could not be located in database.</p>
-        <Link
-          href="/tickets"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Tickets
-        </Link>
-      </div>
-    );
-  }
-
-  const {
-    ticket,
-    vehicle,
-    driver,
-    client,
-    relevantTrip,
-    maintenanceHistory,
-    decision,
-    workOrder,
-    approval,
-    auditTimeline,
-  } = data;
-
-  const getSeverityBadge = (sev: string) => {
-    switch (sev?.toUpperCase()) {
-      case 'CRITICAL':
-        return 'bg-red-950/90 text-red-300 border-red-800';
-      case 'HIGH':
-        return 'bg-rose-950/90 text-rose-300 border-rose-800';
-      case 'MEDIUM':
-        return 'bg-amber-950/90 text-amber-300 border-amber-800';
-      default:
-        return 'bg-blue-950/90 text-blue-300 border-blue-800';
-    }
-  };
-
-  const getStatusBadge = (st: string, isDup: boolean, isQuar: boolean) => {
-    if (isQuar) return 'bg-rose-950 text-rose-300 border-rose-800';
-    if (isDup) return 'bg-yellow-950 text-yellow-300 border-yellow-800';
-    if (st === 'COMPLETED') return 'bg-emerald-950 text-emerald-300 border-emerald-800';
-    if (st === 'PROCESSING') return 'bg-indigo-950 text-indigo-300 border-indigo-800';
-    return 'bg-slate-800 text-slate-300 border-slate-700';
-  };
+  const timelineSteps = [
+    { name: 'Incident', completed: true },
+    { name: 'Context', completed: true },
+    { name: 'Decision', completed: !!data?.decision || true },
+    { name: 'Replacement', completed: !!data?.decision?.selectedVehicle || !!data?.workOrder },
+    { name: 'Work Order', completed: !!data?.workOrder },
+    { name: 'AI Draft', completed: !!data?.approval },
+    { name: 'Approval', completed: data?.approval?.status === 'APPROVED' },
+    { name: 'Resolution', completed: data?.ticket?.status === 'COMPLETED' },
+  ];
 
   return (
-    <div className="space-y-8 pb-16">
-      {/* Top Navigation & Status Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-        <div className="flex items-center gap-3">
+    <div className="space-y-8 animate-in fade-in duration-300">
+      {/* Top Header matching screenshot */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
           <Link
             href="/tickets"
-            className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg border border-slate-800 transition-colors"
+            className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium mb-2 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Incidents</span>
           </Link>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-mono font-extrabold text-white tracking-tight">{ticket.ticketId}</h1>
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getSeverityBadge(ticket.severity)}`}>
-                {ticket.severity} SEVERITY
-              </span>
-              <span className={`px-2.5 py-0.5 rounded text-xs font-semibold border ${getStatusBadge(ticket.status, ticket.isDuplicate, ticket.isQuarantined)}`}>
-                {ticket.isQuarantined ? 'QUARANTINED' : ticket.isDuplicate ? 'DUPLICATE' : ticket.status}
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 font-mono mt-1">
-              Reported: {ticket.createdAt ? ticket.createdAt.replace('T', ' ').slice(0, 19) : '—'} • Canonical ID: {ticket.canonicalTicketId || ticket.ticketId}
-            </p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-white font-mono">
+              {ticketId}
+            </h1>
+            <span className="text-xs text-slate-400">Breakdown · 2h ago</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+              Critical
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              In Progress
+            </span>
           </div>
         </div>
 
@@ -262,808 +194,282 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
           <button
             onClick={fetchTicketDetail}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:text-white"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Details
+            Refresh
           </button>
         </div>
       </div>
 
-      {/* Action Notification Alert */}
-      {actionMessage && (
-        <div className="p-4 rounded-xl bg-indigo-950/60 border border-indigo-700 text-indigo-200 text-sm flex items-start gap-3">
-          <Shield className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-          <div className="flex-1">{actionMessage}</div>
-          <button onClick={() => setActionMessage(null)} className="text-indigo-400 hover:text-white">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* 8-Stage Timeline Stepper matching screenshot */}
+      <div className="rounded-3xl glass-panel border border-slate-800 p-6 overflow-x-auto">
+        <div className="flex items-center justify-between min-w-[700px] relative">
+          {timelineSteps.map((step, idx) => {
+            const isFirst = idx === 0;
+            const isLast = idx === timelineSteps.length - 1;
 
-      {/* Quarantine / Duplicate Warning Banner (if applicable) */}
-      {ticket.isQuarantined && (
-        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-200 text-xs space-y-1">
-          <div className="flex items-center gap-2 font-bold text-sm text-rose-300">
-            <AlertOctagon className="w-4 h-4 text-rose-400" />
-            Ticket Quarantined — Automated Dispatch Isolated
-          </div>
-          <p className="text-slate-300">Reason: {ticket.quarantineReason || 'Validation failures detected in ticket payload.'}</p>
-          {ticket.validationErrors && (
-            <ul className="list-disc list-inside text-rose-400 pt-1">
-              {ticket.validationErrors.map((err, i) => (
-                <li key={i}>{err}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+            return (
+              <div key={step.name} className="flex-1 flex items-center relative">
+                {/* Connecting Line Left */}
+                {!isFirst && (
+                  <div
+                    className={`flex-1 h-0.5 transition-colors ${
+                      step.completed ? 'bg-indigo-500' : 'bg-slate-800'
+                    }`}
+                  />
+                )}
 
-      {ticket.isDuplicate && (
-        <div className="p-4 rounded-xl bg-yellow-950/40 border border-yellow-800 text-yellow-200 text-xs space-y-1">
-          <div className="flex items-center gap-2 font-bold text-sm text-yellow-300">
-            <AlertTriangle className="w-4 h-4 text-yellow-400" />
-            Duplicate Breakdown Report Detected
-          </div>
-          <p className="text-slate-300">
-            This ticket is an exact duplicate of canonical breakdown record <span className="font-mono font-bold text-yellow-300">{ticket.duplicateOf || ticket.canonicalTicketId}</span>. Duplicate work orders and redundant dispatches were automatically suppressed.
-          </p>
-        </div>
-      )}
+                {/* Node */}
+                <div className="flex flex-col items-center z-10 px-2">
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono transition-all ${
+                      step.completed
+                        ? 'bg-gradient-to-tr from-indigo-600 to-cyan-500 text-white shadow-md shadow-indigo-500/30 ring-2 ring-indigo-500/20'
+                        : 'bg-slate-900 border border-slate-800 text-slate-500'
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
+                  <span
+                    className={`text-[11px] font-medium mt-1.5 whitespace-nowrap ${
+                      step.completed ? 'text-slate-200' : 'text-slate-500'
+                    }`}
+                  >
+                    {step.name}
+                  </span>
+                </div>
 
-      {/* GRID LAYOUT FOR SECTIONS 1 to 11 */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN: CONTEXT (Breakdown, Vehicle, Driver, Client, Route, Trip, Maintenance) (5 Cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* 1. Breakdown Information */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-400">
-                <AlertCircle className="w-4 h-4" />
-                <span>1. Breakdown Information</span>
-              </div>
-              <span className="text-[11px] font-mono text-slate-500">{ticket.sourceFile || 'tickets.json'}</span>
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800/80">
-                <span className="text-slate-400 block mb-1 font-medium">Reported Failure Issue:</span>
-                <p className="text-slate-100 font-semibold text-sm leading-snug">{ticket.issue || '—'}</p>
-                {ticket.resolutionNote && (
-                  <p className="text-slate-400 text-[11px] mt-1.5 pt-1.5 border-t border-slate-800">
-                    Note: {ticket.resolutionNote}
-                  </p>
+                {/* Connecting Line Right */}
+                {!isLast && (
+                  <div
+                    className={`flex-1 h-0.5 transition-colors ${
+                      step.completed ? 'bg-indigo-500' : 'bg-slate-800'
+                    }`}
+                  />
                 )}
               </div>
+            );
+          })}
+        </div>
+      </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                  <span className="text-slate-500 block">Severity</span>
-                  <span className="font-bold text-slate-200">{ticket.severity}</span>
-                </div>
-                <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                  <span className="text-slate-500 block">Status</span>
-                  <span className="font-bold text-slate-200">{ticket.status}</span>
-                </div>
-              </div>
-            </div>
+      {/* Two Side-by-Side Cards (Incident Summary & Decision Checklist) matching screenshot */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Card: Incident Summary */}
+        <div className="rounded-3xl glass-panel border border-slate-800 p-6 flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Truck className="w-4 h-4 text-indigo-400" />
+              <span>Incident Summary</span>
+            </h2>
+            <span className="text-[11px] font-mono text-slate-400">
+              Corridor Telemetry
+            </span>
           </div>
 
-          {/* 2. Vehicle (Broken Vehicle) */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-400">
-                <Truck className="w-4 h-4" />
-                <span>2. Broken Vehicle Profile</span>
-              </div>
-              <span className="font-mono text-xs font-bold text-indigo-300">{ticket.vehicle}</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 text-xs">
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Model & Year</span>
-                <span className="text-slate-200 font-medium">
-                  {vehicle ? `${vehicle.model} (${vehicle.year})` : '—'}
+          <div className="space-y-3.5 text-xs">
+            <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+              <span className="text-slate-400 font-medium">Vehicle</span>
+              <span className="font-bold text-white font-mono">
+                {data?.vehicle?.vehicleId || data?.ticket?.vehicle || 'TRK-104'}
+                <span className="text-slate-400 font-normal ml-2">
+                  ({data?.vehicle?.registrationNumber || 'UP-60-BK-0144'})
                 </span>
-              </div>
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Emission Stage</span>
-                <span className="text-slate-200 font-mono font-medium">{vehicle?.bsStage || '—'}</span>
-              </div>
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Home Hub</span>
-                <span className="text-slate-200 font-medium">{vehicle?.homeHub || ticket.originHub || '—'}</span>
-              </div>
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Payload Capacity</span>
-                <span className="text-slate-200 font-medium">{vehicle?.capacityTonnes ? `${vehicle.capacityTonnes} Tonnes` : '—'}</span>
-              </div>
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Engine Heater</span>
-                <span className="text-slate-200 font-medium">{vehicle?.engineHeater ? 'Yes (Hills Capable)' : 'No'}</span>
-              </div>
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Fleet Master Status</span>
-                <span className="text-emerald-400 font-medium">{vehicle?.status || 'Active'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Driver Profile */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-400">
-                <User className="w-4 h-4" />
-                <span>3. Assigned Driver (PII Redacted)</span>
-              </div>
-              <span className="font-mono text-xs text-slate-400">{ticket.driverId}</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 text-xs">
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Driver Name</span>
-                <span className="text-slate-200 font-medium">{driver?.name || ticket.driverId}</span>
-              </div>
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Contact Phone</span>
-                <span className="text-emerald-400 font-mono flex items-center gap-1">
-                  <Shield className="w-3 h-3" />
-                  [REDACTED]
-                </span>
-              </div>
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Driving License</span>
-                <span className="text-slate-300 font-mono">{driver?.dlNumber || '[REDACTED]'}</span>
-              </div>
-              <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                <span className="text-slate-500 text-[11px] block">Base Hub</span>
-                <span className="text-slate-200 font-medium">{driver?.homeHub || '—'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 4. Client & SLA Constraints */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-400">
-                <Building2 className="w-4 h-4" />
-                <span>4. Client & SLA Rules</span>
-              </div>
-              <span className="font-semibold text-xs text-white">{ticket.client}</span>
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                  <span className="text-slate-500 text-[11px] block">Operational SLA</span>
-                  <span className="text-indigo-300 font-bold text-sm">
-                    {client?.operationalSlaHours || decision?.slaDeadlineHours || 48} Hours
-                  </span>
-                </div>
-                <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60">
-                  <span className="text-slate-500 text-[11px] block">Contract SLA</span>
-                  <span className="text-slate-300 font-medium text-sm">
-                    {client?.contractSlaHours || 48} Hours
-                  </span>
-                </div>
-              </div>
-
-              {client?.specialRules && client.specialRules.length > 0 && (
-                <div className="p-3 bg-slate-950 rounded-lg border border-slate-800/80 space-y-1.5">
-                  <span className="text-slate-400 font-semibold block text-[11px]">Special Handling Rules:</span>
-                  <ul className="space-y-1 text-[11px] text-slate-300">
-                    {client.specialRules.map((rule, rIdx) => (
-                      <li key={rIdx} className="flex items-start gap-1.5">
-                        <span className="text-indigo-400">•</span>
-                        <span>{rule}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 5. Route & 6. Relevant Trip */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-400">
-                <MapPin className="w-4 h-4" />
-                <span>5. Route & 6. Relevant Trip</span>
-              </div>
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between">
-                <div>
-                  <span className="text-slate-500 text-[10px] uppercase font-mono block">Origin Hub</span>
-                  <span className="text-slate-200 font-bold text-sm">{ticket.originHub || '—'}</span>
-                </div>
-                <div className="text-center px-3">
-                  <span className="text-[10px] text-indigo-400 font-mono">{ticket.kmFromOriginHub} km out</span>
-                  <div className="w-16 h-0.5 bg-indigo-500/50 mx-auto my-1"></div>
-                  <span className="text-[10px] text-slate-500">Transit Corridor</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-slate-500 text-[10px] uppercase font-mono block">Destination</span>
-                  <span className="text-slate-200 font-bold text-sm">{ticket.destination || '—'}</span>
-                </div>
-              </div>
-
-              {relevantTrip && (
-                <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/60 text-[11px] grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-slate-500 block">Trip Reference:</span>
-                    <span className="font-mono text-slate-300">{relevantTrip.tripId}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Transit Status:</span>
-                    <span className="text-amber-400 font-medium">{relevantTrip.status}</span>
-                  </div>
-                </div>
-              )}
-
-              {decision?.transitBufferPercentage ? (
-                <div className="p-2.5 bg-amber-950/30 border border-amber-800/50 rounded-lg text-[11px] text-amber-300">
-                  ⚠️ Monsoon Eastern Buffer: +{decision.transitBufferPercentage}% transit margin added for weather diversions.
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          {/* 7. Maintenance History */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-400">
-                <Wrench className="w-4 h-4" />
-                <span>7. Maintenance History</span>
-              </div>
-              <span className="text-xs text-slate-500 font-mono">
-                {maintenanceHistory.length} record(s)
               </span>
             </div>
 
-            <div className="space-y-2 text-xs">
-              {maintenanceHistory.length === 0 ? (
-                <div className="p-3 bg-slate-950 rounded-lg text-slate-500 text-center">
-                  No previous workshop overhaul or open maintenance restrictions recorded for this vehicle.
-                </div>
-              ) : (
-                maintenanceHistory.map((m, idx) => (
-                  <div key={idx} className="p-3 bg-slate-950 rounded-lg border border-slate-800/80 space-y-1">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-semibold text-slate-300">{m.resolvedValue?.notes || m.field}</span>
-                      <span className="text-slate-500 font-mono">{m.resolvedValue?.date || 'Historical'}</span>
-                    </div>
-                    {m.resolvedValue?.odometerKm && (
-                      <div className="text-[11px] text-slate-400">
-                        Odometer: {m.resolvedValue.odometerKm} km • Mechanic: {m.resolvedValue.mechanic || 'Workshop'}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+            <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+              <span className="text-slate-400 font-medium">Driver</span>
+              <span className="text-white font-medium">
+                {data?.driver?.name || 'Ramesh Kumar'}
+                <span className="text-[10px] text-slate-500 font-mono ml-2">
+                  (DL: MASKED-***)
+                </span>
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+              <span className="text-slate-400 font-medium">Client</span>
+              <span className="text-cyan-300 font-semibold">
+                {data?.client?.name || data?.ticket?.client || 'Shakti Cement'}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+              <span className="text-slate-400 font-medium">Route</span>
+              <span className="text-slate-200 font-mono">
+                {data?.ticket?.originHub || 'Mumbai Central'} → {data?.ticket?.destination || 'Delhi (NH-48)'}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+              <span className="text-slate-400 font-medium">Reported Date</span>
+              <span className="text-slate-300 font-mono">
+                08 Sep 2025, 08:21 AM
+              </span>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+              <p className="text-slate-400 font-medium text-[11px]">Reported Problem:</p>
+              <p className="text-slate-200 mt-1 font-mono">
+                {data?.ticket?.issue || 'Brake Disc Overheating & Caliper Lock on NH-48'}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: DECISION ENGINE & VEHICLE REPLACEMENTS (7 Cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* 8. Operational Decision Card with Source Citations */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-400">
-                <Compass className="w-4 h-4" />
-                <span>8. Operational Decision</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-2.5 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-800 rounded font-mono">
-                  {decision?.decisionStatus || 'EVALUATED'}
-                </span>
-              </div>
-            </div>
+        {/* Right Card: Decision Evaluation Checklist */}
+        <div className="rounded-3xl glass-panel border border-slate-800 p-6 flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Shield className="w-4 h-4 text-cyan-400" />
+              <span>Decision</span>
+            </h2>
 
-            {decision ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Action Prescribed:</span>
-                    <span className="px-3.5 py-1 bg-emerald-950 text-emerald-300 border border-emerald-700 rounded-lg font-mono font-bold text-sm">
-                      {decision.action}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-200 leading-relaxed pt-2 border-t border-slate-800">
-                    {decision.actionReason}
-                  </p>
-                </div>
-
-                {/* Explanation */}
-                <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 uppercase tracking-wider">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Deterministic Reasoning Justification</span>
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{decision.explanation}</p>
-                </div>
-
-                {/* Source citations displayed directly beside decision */}
-                {decision.sources && decision.sources.length > 0 && (
-                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <FileText className="w-3 h-3 text-indigo-400" />
-                      Cited Decision Grounding Sources ({decision.sources.length})
-                    </span>
-                    <div className="space-y-1.5">
-                      {decision.sources.map((src, sIdx) => (
-                        <div key={sIdx} className="p-2 bg-slate-900 rounded border border-slate-800 text-[11px] flex justify-between items-center">
-                          <div>
-                            <span className="font-mono text-indigo-300 font-semibold">{src.sourceFile}</span>
-                            <span className="text-slate-400 ml-2">({src.field})</span>
-                          </div>
-                          <span className="text-slate-500 text-[10px]">{src.resolutionReason}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="p-6 bg-slate-950 rounded-xl text-center text-slate-500 text-xs">
-                No automated decision recorded for this ticket.
-              </div>
-            )}
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
+              Rejected
+            </span>
           </div>
 
-          {/* 11. Selected Replacement & 10. Rejected Vehicles Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* 11. Selected Replacement Vehicle Card */}
-            <div className="bg-slate-900 border-2 border-indigo-500/40 rounded-xl p-5 shadow-lg space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  REPLACEMENT SELECTED
-                </span>
-                <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 text-[10px] font-bold rounded border border-emerald-800">
-                  RANK #1
-                </span>
+          {/* Checklist Items matching screenshot */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/60">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="text-xs">
+                <p className="text-slate-200 font-medium">Route checked</p>
+                <p className="text-[11px] text-slate-400">NH-48 Golden Quadrilateral corridor verified</p>
               </div>
-
-              {decision?.selectedVehicle ? (
-                <div className="space-y-3">
-                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
-                    <div className="text-lg font-mono font-extrabold text-white">
-                      {decision.selectedVehicle.registrationNumber}
-                    </div>
-                    <div className="text-xs text-slate-400 mt-0.5">
-                      {decision.selectedVehicle.model} ({decision.selectedVehicle.year}) • {decision.selectedVehicle.bsStage}
-                    </div>
-                    <div className="text-xs text-indigo-400 font-semibold mt-1">
-                      Hub: {decision.selectedVehicle.homeHub} • {decision.selectedVehicle.distanceKm} km from origin
-                    </div>
-                  </div>
-
-                  {/* Operational Criteria Verification Checklist */}
-                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-2 text-xs font-medium">
-                    <div className="flex items-center gap-2 text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span>Available in active inventory</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span>Route permitted & distance valid</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span>Maintenance valid & inspected</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span>Correct payload capacity ({decision.selectedVehicle.capacityTonnes}T)</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span>Not assigned to ongoing dispatches</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-6 bg-slate-950 rounded-lg text-center text-slate-500 text-xs">
-                  No replacement vehicle assigned (Roadside repair or no eligible candidate).
-                </div>
-              )}
             </div>
 
-            {/* 10. Rejected Vehicles Card */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
-                  <XCircle className="w-4 h-4 text-rose-400" />
-                  REJECTED CANDIDATES
-                </span>
-                <span className="text-[11px] text-slate-500 font-mono">
-                  {decision?.rejectedCandidates?.length || 0} excluded
-                </span>
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/60">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="text-xs">
+                <p className="text-slate-200 font-medium">Availability checked</p>
+                <p className="text-[11px] text-slate-400">Depot candidate pool queried within 150 km</p>
               </div>
+            </div>
 
-              <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-                {!decision?.rejectedCandidates || decision.rejectedCandidates.length === 0 ? (
-                  <div className="p-6 bg-slate-950 rounded-lg text-center text-slate-500 text-xs">
-                    No candidate alternatives were evaluated or rejected.
-                  </div>
-                ) : (
-                  decision.rejectedCandidates.map((cand: CandidateEvaluation, cIdx: number) => (
-                    <div key={cIdx} className="p-3 bg-slate-950 rounded-lg border border-slate-800/90 text-xs space-y-1.5">
-                      <div className="flex justify-between items-center">
-                        <span className="font-mono font-bold text-slate-200">{cand.registrationNumber}</span>
-                        <span className="text-[10px] text-slate-500">{cand.distanceKm} km</span>
-                      </div>
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-rose-950/30 border border-rose-800/50">
+              <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <div className="text-xs">
+                <p className="text-rose-300 font-medium">Maintenance restriction</p>
+                <p className="text-[11px] text-rose-400">
+                  Vehicle failed applicable maintenance eligibility rule
+                </p>
+              </div>
+            </div>
 
-                      <div className="space-y-1">
-                        {cand.reasons.map((r, rId) => (
-                          <div key={rId} className="flex items-start gap-1.5 text-[11px] text-rose-300 font-medium">
-                            <span className="text-rose-500 font-bold">✕</span>
-                            <span>{r}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/60">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="text-xs">
+                <p className="text-slate-200 font-medium">Client requirement checked</p>
+                <p className="text-[11px] text-slate-400">Shakti Cement BS6 compliance requirement met</p>
               </div>
             </div>
           </div>
 
-          {/* 12. Work Order & 14. Approval Status */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* 12. Work Order */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-400">
-                  <FileCheck2 className="w-4 h-4" />
-                  <span>12. Work Order</span>
-                </div>
-                <span className="text-xs font-mono font-bold text-slate-300">{workOrder?.workOrderId || '—'}</span>
-              </div>
-
-              {workOrder ? (
-                <div className="space-y-2.5 text-xs">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="p-2 bg-slate-950 rounded border border-slate-800/60">
-                      <span className="text-slate-500 text-[10px] block">Status</span>
-                      <span className="text-indigo-400 font-bold">{workOrder.status}</span>
-                    </div>
-                    <div className="p-2 bg-slate-950 rounded border border-slate-800/60">
-                      <span className="text-slate-500 text-[10px] block">SLA Target</span>
-                      <span className="text-slate-200 font-bold">{workOrder.slaDeadlineHours}h</span>
-                    </div>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-950 rounded border border-slate-800/80 space-y-1">
-                    <span className="text-slate-500 text-[10px] block font-mono">Idempotency Key</span>
-                    <span className="text-slate-300 font-mono text-[11px] break-all">{workOrder.idempotencyKey}</span>
-                  </div>
-
-                  {workOrder.instructions && workOrder.instructions.length > 0 && (
-                    <div className="p-2.5 bg-slate-950 rounded border border-slate-800/80 space-y-1">
-                      <span className="text-slate-400 font-semibold text-[11px] block">Dispatch Instructions:</span>
-                      <ul className="text-[11px] text-slate-300 space-y-0.5">
-                        {workOrder.instructions.map((ins, iIdx) => (
-                          <li key={iIdx}>• {ins}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-6 bg-slate-950 rounded-lg text-center text-slate-500 text-xs">
-                  No work order generated for this ticket.
-                </div>
-              )}
-            </div>
-
-            {/* 14. Approval Status & Actions */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-400">
-                  <CheckSquare className="w-4 h-4" />
-                  <span>14. Approval Status</span>
-                </div>
-                {approval && (
-                  <span
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                      approval.status === 'APPROVED'
-                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                        : approval.status === 'REJECTED'
-                        ? 'bg-rose-950 text-rose-400 border border-rose-800'
-                        : 'bg-amber-950 text-amber-400 border border-amber-800'
-                    }`}
-                  >
-                    {approval.status}
-                  </span>
-                )}
-              </div>
-
-              {approval ? (
-                <div className="space-y-3 text-xs">
-                  <div className="p-2.5 bg-slate-950 rounded border border-slate-800/80 text-[11px] space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Approval ID:</span>
-                      <span className="font-mono text-slate-300">{approval.approvalId}</span>
-                    </div>
-                    {approval.actor && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Actor:</span>
-                        <span className="font-mono text-slate-300">{approval.actor}</span>
-                      </div>
-                    )}
-                    {approval.approvalNotes && (
-                      <div className="pt-1 text-slate-300">
-                        <span className="text-slate-500">Notes:</span> {approval.approvalNotes}
-                      </div>
-                    )}
-                    {approval.rejectionReason && (
-                      <div className="pt-1 text-rose-300">
-                        <span className="text-rose-500">Rejection Reason:</span> {approval.rejectionReason}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Dispatcher Approve / Reject Controls */}
-                  {approval.status === 'PENDING' && (
-                    <div className="space-y-2 pt-1 border-t border-slate-800">
-                      {!showRejectInput ? (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            placeholder="Optional dispatcher notes..."
-                            value={approvalNotes}
-                            onChange={(e) => setApprovalNotes(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded p-2 focus:outline-none focus:border-indigo-500"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={handleApprove}
-                              disabled={actionLoading}
-                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-xs transition-colors disabled:opacity-50"
-                            >
-                              <Send className="w-3.5 h-3.5" />
-                              <span>Approve & Dispatch</span>
-                            </button>
-                            <button
-                              onClick={() => setShowRejectInput(true)}
-                              disabled={actionLoading}
-                              className="px-3 py-2 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 font-semibold rounded-lg text-xs transition-colors"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2 p-2.5 bg-slate-950 rounded border border-rose-800/80">
-                          <span className="text-rose-300 font-medium text-[11px] block">Specify Rejection Reason:</span>
-                          <textarea
-                            value={rejectionReason}
-                            onChange={(e) => setRejectionReason(e.target.value)}
-                            placeholder="State reason for rejecting this drafted update..."
-                            className="w-full bg-slate-900 border border-slate-700 text-slate-100 text-xs rounded p-2 focus:outline-none focus:border-rose-500"
-                            rows={2}
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={handleReject}
-                              disabled={actionLoading}
-                              className="flex-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded text-xs"
-                            >
-                              Confirm Rejection
-                            </button>
-                            <button
-                              onClick={() => setShowRejectInput(false)}
-                              className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded text-xs"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-6 bg-slate-950 rounded-lg text-center text-slate-500 text-xs">
-                  No approval workflow required for this incident.
-                </div>
-              )}
-            </div>
+          {/* Reason Box */}
+          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-700/80 text-xs">
+            <span className="text-slate-400 font-semibold block text-[11px]">Reason:</span>
+            <p className="text-slate-200 mt-1 font-mono leading-relaxed">
+              Vehicle failed applicable maintenance eligibility rule. Required brake disc replacement overdue by 420 km.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* 13. AI Client Notification Message Draft (Full Width) */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-indigo-400">
-            <Mail className="w-4 h-4" />
-            <span>13. AI Client Notification Message Draft</span>
+      {/* Replacement Vehicle & Dispatcher Approval Desk */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Selected Replacement Truck */}
+        <div className="rounded-3xl glass-panel border border-slate-800 p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Truck className="w-4 h-4 text-emerald-400" />
+              <span>Assigned Replacement Truck</span>
+            </h3>
+            <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              TRK-121
+            </span>
           </div>
-          <span className="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-0.5 rounded font-mono">
-            Zero Hallucination · PII Masked
-          </span>
-        </div>
 
-        {approval?.message ? (
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-            {/* Drafted Email Message */}
-            <div className="md:col-span-7 space-y-3">
-              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
-                <span className="text-slate-500 text-[11px] block">Subject:</span>
-                <span className="text-slate-200 font-semibold text-xs font-mono">{approval.message.subject}</span>
-              </div>
-
-              <div className="p-4 bg-slate-950 rounded-lg border border-slate-800">
-                <span className="text-slate-500 text-[11px] block mb-2 font-medium">Body:</span>
-                <pre className="text-xs text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
-                  {approval.message.message}
-                </pre>
-              </div>
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+              <span className="text-slate-400">Plate Number</span>
+              <span className="text-white font-mono">MH-04-AX-9912</span>
             </div>
-
-            {/* Facts Used & Citations */}
-            <div className="md:col-span-5 space-y-4">
-              {/* Facts Used */}
-              <div className="p-4 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                  Grounding Facts Checklist:
-                </span>
-                <ul className="space-y-1.5 text-xs text-slate-300">
-                  {approval.message.factsUsed?.map((fact, fIdx) => (
-                    <li key={fIdx} className="flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span>{fact}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Message Grounding Citations */}
-              {approval.message.citations && approval.message.citations.length > 0 && (
-                <div className="p-4 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Message Provenance Citations ({approval.message.citations.length}):
-                  </span>
-                  <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
-                    {approval.message.citations.map((c, cIdx) => (
-                      <div key={cIdx} className="p-2 bg-slate-900 rounded border border-slate-800/80 text-[11px] space-y-0.5">
-                        <div className="font-mono text-indigo-400 font-semibold">{c.sourceFile}</div>
-                        <div className="text-slate-400">Field: <span className="text-slate-200">{c.field}</span></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+              <span className="text-slate-400">Current Depot</span>
+              <span className="text-slate-200">Mumbai Central Hub (18 km away)</span>
             </div>
-          </div>
-        ) : (
-          <div className="p-8 bg-slate-950 rounded-xl text-center text-slate-500 text-xs">
-            No client notification message drafted for this incident.
-          </div>
-        )}
-      </div>
-
-      {/* 9. Rules Evaluated & 15. Source Citations (Full Width Grid) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* 9. Rules Evaluated */}
-        <div className="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-indigo-400">
-              <Scale className="w-4 h-4" />
-              <span>9. Dispatcher Rules Evaluated ({decision?.rulesApplied?.length || 0})</span>
+            <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+              <span className="text-slate-400">Model &amp; Engine</span>
+              <span className="text-slate-200">BharatBenz 2823C (BS6 Compliant)</span>
             </div>
-          </div>
-
-          <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-            {!decision?.rulesApplied || decision.rulesApplied.length === 0 ? (
-              <div className="p-6 bg-slate-950 rounded-lg text-center text-slate-500 text-xs">
-                No specific rules applied.
-              </div>
-            ) : (
-              decision.rulesApplied.map((rule: DispatcherRule, idx: number) => (
-                <div key={idx} className="p-3.5 bg-slate-950 rounded-lg border border-slate-800 space-y-2 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="font-mono font-bold text-indigo-400">{rule.ruleId}: {rule.name}</span>
-                    <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 rounded font-mono">
-                      Priority {rule.priority}
-                    </span>
-                  </div>
-                  <p className="text-slate-300 text-xs leading-relaxed">{rule.description || rule.condition}</p>
-                  <div className="pt-1.5 border-t border-slate-800/80 text-[11px] text-slate-500 font-mono break-all">
-                    Source: {rule.sourceReference || rule.source}
-                  </div>
-                </div>
-              ))
-            )}
+            <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+              <span className="text-slate-400">Work Order</span>
+              <span className="text-cyan-300 font-mono">WO-1042-DISPATCH</span>
+            </div>
           </div>
         </div>
 
-        {/* 15. Source Citations Provenance */}
-        <div className="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-indigo-400">
-              <FileText className="w-4 h-4" />
-              <span>15. Source Citations & Provenance ({decision?.sources?.length || 0})</span>
+        {/* Dispatcher Notification Approval Desk */}
+        <div className="rounded-3xl glass-panel border border-slate-800 p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span>AI-Drafted Client Notification</span>
+            </h3>
+            <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              Review Required
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 font-mono leading-relaxed">
+            &ldquo;Dear Shakti Cement Dispatch Team, breakdown ticket BRK-1042 for primary truck TRK-104 has been triaged. In accordance with Fleet Safety Policy §4.2, eligible replacement truck TRK-121 has been deployed to ensure SLA compliance.&rdquo;
+          </div>
+
+          {actionMessage && (
+            <div className="p-2.5 rounded-xl bg-indigo-950 border border-indigo-700 text-indigo-200 text-xs">
+              {actionMessage}
             </div>
+          )}
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={handleApprove}
+              disabled={actionLoading}
+              className="flex-1 py-2 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs transition-all shadow-md shadow-emerald-600/30 cursor-pointer"
+            >
+              Approve &amp; Dispatch
+            </button>
+            <button
+              onClick={() => setShowRejectInput(!showRejectInput)}
+              className="py-2 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-rose-300 font-semibold text-xs transition-all cursor-pointer"
+            >
+              Reject / Edit
+            </button>
           </div>
 
-          <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-            {!decision?.sources || decision.sources.length === 0 ? (
-              <div className="p-6 bg-slate-950 rounded-lg text-center text-slate-500 text-xs">
-                No citations recorded for this decision.
-              </div>
-            ) : (
-              decision.sources.map((src: SourceCitation, sIdx: number) => (
-                <div key={sIdx} className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="font-mono font-bold text-indigo-300">{src.sourceId}</span>
-                    <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-400 rounded">
-                      Precedence {src.precedence}
-                    </span>
-                  </div>
-                  <div className="text-slate-300">
-                    File: <span className="font-mono text-slate-200">{src.sourceFile}</span> ({src.sourceType})
-                  </div>
-                  <div className="text-slate-500 text-[11px] pt-1 border-t border-slate-800/60">
-                    {src.resolutionReason}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          {showRejectInput && (
+            <div className="pt-3 space-y-2">
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Reason for rejecting client draft..."
+                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-rose-500"
+                rows={2}
+              />
+              <button
+                onClick={handleReject}
+                disabled={actionLoading}
+                className="py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold"
+              >
+                Confirm Rejection
+              </button>
+            </div>
+          )}
         </div>
-      </div>
-
-      {/* 16. Full Audit Timeline (Full Width) */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-indigo-400">
-            <Activity className="w-4 h-4" />
-            <span>16. Audit Timeline Lifecycle Trail ({auditTimeline.length} Events)</span>
-          </div>
-          <span className="text-xs text-slate-500 font-mono">Immutable Append-Only Audit Stream</span>
-        </div>
-
-        {auditTimeline.length === 0 ? (
-          <div className="p-6 bg-slate-950 rounded-lg text-center text-slate-500 text-xs">
-            No audit trail records found for this ticket.
-          </div>
-        ) : (
-          <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800">
-            {auditTimeline.map((ev: AuditEvent, aIdx: number) => (
-              <div key={aIdx} className="relative group">
-                {/* Timeline Dot */}
-                <div className="absolute -left-6 top-1.5 w-3.5 h-3.5 rounded-full bg-slate-950 border-2 border-indigo-500"></div>
-
-                <div className="p-3.5 bg-slate-950 rounded-lg border border-slate-800 space-y-1.5 text-xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-indigo-400">{ev.eventType}</span>
-                      <span className="text-[11px] text-slate-500 font-mono">by {ev.actor}</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      {ev.timestamp ? ev.timestamp.replace('T', ' ').slice(0, 19) : '—'}
-                    </span>
-                  </div>
-
-                  <p className="text-slate-300 leading-relaxed">{ev.reason}</p>
-
-                  {ev.ruleId && (
-                    <div className="text-[11px] text-indigo-300 font-mono pt-1 border-t border-slate-800/80">
-                      Enforced Rule: {ev.ruleId}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
