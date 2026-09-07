@@ -3,9 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { useEmergency } from '@/app/hooks/useEmergency';
+import { ShieldAlert, ArrowRight, PhoneCall, CheckCircle2 } from 'lucide-react';
 
 export default function EmergencyOverview() {
-  const { emergencies, stats } = useEmergency({
+  const { emergencies } = useEmergency({
     pollingIntervalMs: 8000,
     autoRefresh: true,
   });
@@ -13,38 +14,48 @@ export default function EmergencyOverview() {
   const activeEmergencies = emergencies.filter((e) => e.status === 'ACTIVE' || e.status === 'ACKNOWLEDGED');
 
   return (
-    <div className="glass-panel p-5 rounded-2xl border border-white/10 flex flex-col justify-between h-full space-y-4">
+    <div className="cyber-card-pink p-5 sm:p-6 rounded-2xl flex flex-col justify-between h-full space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className={`p-2 rounded-xl ${activeEmergencies.length > 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-xl ${activeEmergencies.length > 0 ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30 shadow-[0_0_12px_rgba(236,72,153,0.3)]' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+            <ShieldAlert className="w-5 h-5 animate-pulse" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white tracking-wide">Driver Safety & SOS</h3>
-            <p className="text-[11px] text-slate-400">Emergency response triage desk</p>
+            <h3 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2">
+              <span>Driver Safety Desk</span>
+              {activeEmergencies.length > 0 ? (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/40 animate-pulse font-bold">
+                  {activeEmergencies.length} ACTIVE
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                  CLEAR
+                </span>
+              )}
+            </h3>
+            <p className="text-[11px] text-slate-400">Highway SOS telemetry &amp; emergency rescue dispatch</p>
           </div>
         </div>
 
         <Link
           href="/safety"
-          className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1"
+          className="text-xs font-semibold text-pink-400 hover:text-pink-300 transition flex items-center gap-1 group font-mono"
         >
-          View Center &rarr;
+          <span>Safety Center</span>
+          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
         </Link>
       </div>
 
       {/* Content */}
       {activeEmergencies.length === 0 ? (
-        <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-center space-y-1.5">
-          <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            Zero Active Emergencies
+        <div className="p-4 rounded-xl bg-emerald-950/25 border border-emerald-500/25 text-center space-y-2">
+          <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-300 font-mono">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            Zero Active Highway Distress Signals
           </div>
-          <p className="text-[11px] text-slate-400">
-            All active drivers nominal. Next SOS response protocol will trigger automated notifications.
+          <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+            All active fleet drivers are reporting nominal GPS coordinates. 3-second SOS triggers will immediately page nearest highway depots.
           </p>
         </div>
       ) : (
@@ -52,47 +63,47 @@ export default function EmergencyOverview() {
           {activeEmergencies.slice(0, 2).map((em) => (
             <div
               key={em.id}
-              className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/40 flex items-center justify-between gap-3"
+              className="p-3.5 rounded-xl bg-pink-950/40 border border-pink-500/40 flex items-center justify-between gap-3 shadow-[0_0_15px_rgba(236,72,153,0.15)]"
             >
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-pink-500"></span>
                   </span>
-                  <span className="text-xs font-bold text-white">{em.driverName}</span>
-                  <span className="text-[10px] font-mono text-rose-300">({em.vehicleId})</span>
+                  <span className="text-xs font-bold text-white font-mono">{em.id}</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300 border border-pink-500/30">
+                    {em.priority || em.severity || 'HIGH'}
+                  </span>
                 </div>
-                <p className="text-[11px] text-rose-200/80 truncate max-w-[200px] mt-0.5">
-                  {em.notes || 'Emergency distress signal'}
-                </p>
+                <div className="text-[11px] text-slate-300 mt-1">
+                  Driver: <strong className="text-white">{em.driverName || em.driverId || 'Assigned Driver'}</strong> • Vehicle: <strong className="text-white">{em.vehicleRegistration || em.vehicleId || 'Fleet Unit'}</strong>
+                </div>
               </div>
 
               <Link
                 href={`/emergency/${em.id}`}
-                className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold shadow transition shrink-0"
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold transition shadow-[0_0_10px_rgba(236,72,153,0.3)]"
               >
-                Command
+                Triage
               </Link>
             </div>
           ))}
         </div>
       )}
 
-      {/* Footer Stats */}
-      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 text-center text-xs">
-        <div>
-          <span className="text-slate-400 text-[10px] block">Active SOS</span>
-          <span className="font-bold text-rose-400">{stats.active}</span>
-        </div>
-        <div>
-          <span className="text-slate-400 text-[10px] block">Resolved</span>
-          <span className="font-bold text-emerald-400">{stats.resolved}</span>
-        </div>
-        <div>
-          <span className="text-slate-400 text-[10px] block">Avg Response</span>
-          <span className="font-bold text-indigo-300">{stats.avgResponseTimeMinutes}m</span>
-        </div>
+      {/* Action footer */}
+      <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-xs">
+        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+          <PhoneCall className="w-3.5 h-3.5 text-pink-400" />
+          Distress Hotline: 1800-GRAFITY-SOS
+        </span>
+        <Link
+          href="/safety"
+          className="px-3 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 text-pink-200 border border-pink-500/40 text-xs font-semibold transition shadow-[0_0_12px_rgba(236,72,153,0.2)]"
+        >
+          View Incident Log
+        </Link>
       </div>
     </div>
   );

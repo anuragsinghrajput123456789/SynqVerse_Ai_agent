@@ -4,8 +4,11 @@ import './globals.css';
 import AppShell from './components/AppShell';
 
 export const metadata: Metadata = {
-  title: 'Grafity | Intelligence in Motion',
-  description: 'Your operations. Smarter. Faster. Safer. Autonomous Breakdown & Dispatch Operations Console',
+  title: 'GRAFITY | Smart Logistics • AI-Powered Optimization • End-to-End Visibility',
+  description: 'Autonomous AI logistics operations console powering real-time highway emergency dispatch, deterministic conflict resolution, and high-frequency fleet telemetry.',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -16,10 +19,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className="h-full bg-[#080c18] text-slate-100 antialiased"
+      className="h-full bg-[#040814] text-slate-100 antialiased"
     >
-      <body className="min-h-full bg-[#080c18] text-slate-100 selection:bg-indigo-500 selection:text-white font-sans">
-        <Suspense fallback={<div className="min-h-screen bg-[#080c18]" />}>
+      <body className="min-h-full bg-[#040814] text-slate-100 selection:bg-cyan-400 selection:text-slate-950 font-sans">
+        <Suspense fallback={<div className="min-h-screen bg-[#040814]" />}>
           <AppShell>{children}</AppShell>
         </Suspense>
       </body>

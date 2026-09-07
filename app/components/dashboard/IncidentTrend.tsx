@@ -69,15 +69,20 @@ export default function IncidentTrend({ tickets = [], totalIncidents = 0 }: Inci
   const areaD = `${pathD} L ${points[points.length - 1].x} ${svgHeight - paddingY} L ${points[0].x} ${svgHeight - paddingY} Z`;
 
   return (
-    <div className="bg-[#0d1428]/70 border border-white/[0.08] rounded-2xl p-5 shadow-lg backdrop-blur-xl flex flex-col justify-between h-full">
+    <div className="cyber-card p-5 sm:p-6 rounded-2xl flex flex-col justify-between h-full">
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+      <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
         <div>
-          <h2 className="text-sm font-bold text-white tracking-tight">Incident Trends</h2>
-          <p className="text-xs text-slate-400">Breakdowns over time</p>
+          <h2 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <span>Incident Telemetry Curve</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              Live
+            </span>
+          </h2>
+          <p className="text-xs text-slate-400">Breakdown frequency distribution across active corridors</p>
         </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-950/60 text-emerald-300 border border-emerald-800/50 shadow-[0_0_10px_rgba(16,185,129,0.2)] font-mono">
-          <TrendingDown className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)] font-mono">
+          <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
           <span>-20% Load</span>
         </div>
       </div>
@@ -91,8 +96,14 @@ export default function IncidentTrend({ tickets = [], totalIncidents = 0 }: Inci
         >
           <defs>
             <linearGradient id="darkTrendGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#6366f1" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+              <stop offset="0%" stopColor="#00F0FF" stopOpacity="0.38" />
+              <stop offset="60%" stopColor="#818CF8" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#00F0FF" stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id="strokeGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#00F0FF" />
+              <stop offset="50%" stopColor="#818CF8" />
+              <stop offset="100%" stopColor="#D946EF" />
             </linearGradient>
             <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
               <feGaussianBlur stdDeviation="3" result="glow" />
@@ -135,8 +146,8 @@ export default function IncidentTrend({ tickets = [], totalIncidents = 0 }: Inci
           <path
             d={pathD}
             fill="none"
-            stroke="#06b6d4"
-            strokeWidth="2.5"
+            stroke="url(#strokeGrad)"
+            strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
             filter="url(#glow)"

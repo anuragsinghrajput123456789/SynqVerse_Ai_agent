@@ -22,7 +22,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#080c18] text-slate-100 selection:bg-indigo-500 selection:text-white">
+    <div className="flex flex-col min-h-screen bg-[#040814] text-slate-100 selection:bg-cyan-400 selection:text-slate-950 bg-cyber-grid">
       {/* 1. Horizontal Top Navigation Bar */}
       <Navbar onOpenCommandPalette={() => setCommandPaletteOpen(true)} />
 

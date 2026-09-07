@@ -8,6 +8,8 @@ import NavLinks from './navbar/NavLinks';
 import NavUserMenu from './navbar/NavUserMenu';
 import NavMobileMenu from './navbar/NavMobileMenu';
 
+import GrafityLogo from './ui/GrafityLogo';
+
 interface NavbarProps {
   onOpenCommandPalette?: () => void;
 }
@@ -22,23 +24,19 @@ export default function Navbar({ onOpenCommandPalette }: NavbarProps) {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-40 bg-[#080c18]/90 backdrop-blur-xl border-b border-white/[0.08] shadow-2xl">
+    <header className="sticky top-0 z-40 bg-[#040814]/90 backdrop-blur-xl border-b border-cyan-500/20 shadow-[0_4px_25px_rgba(0,0,0,0.7),0_0_20px_rgba(0,240,255,0.08)]">
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 gap-4">
           {/* 1. Left: Brand Mark */}
           <div className="flex items-center gap-3 shrink-0">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-400 p-[1.5px] shadow-md shadow-indigo-600/30 group-hover:scale-105 transition-transform">
-                <div className="w-full h-full bg-[#080c18] rounded-[7px] flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-cyan-300 fill-cyan-400/20" />
-                </div>
-              </div>
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <GrafityLogo size={32} glow={true} animated={true} />
               <div className="flex items-center gap-1.5">
-                <span className="text-base font-black tracking-tight text-white">
-                  Grafity
+                <span className="text-lg font-black tracking-wider uppercase bg-gradient-to-r from-cyan-300 via-sky-200 to-fuchsia-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(0,240,255,0.4)]">
+                  GRAFITY
                 </span>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  OPS
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                  AI OPS
                 </span>
               </div>
             </Link>

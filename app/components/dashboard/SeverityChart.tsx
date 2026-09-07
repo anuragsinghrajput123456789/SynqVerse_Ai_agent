@@ -40,17 +40,17 @@ export default function SeverityChart({ tickets = [], totalCount = 0 }: Severity
     if (counts.total === 0) {
       return [
         { label: 'Critical', count: 0, color: '#f43f5e', percent: 0, dashArray: `0 ${circumference}`, offset: 0 },
-        { label: 'High', count: 0, color: '#f97316', percent: 0, dashArray: `0 ${circumference}`, offset: 0 },
-        { label: 'Medium', count: 0, color: '#f59e0b', percent: 0, dashArray: `0 ${circumference}`, offset: 0 },
-        { label: 'Low', count: 0, color: '#06b6d4', percent: 0, dashArray: `0 ${circumference}`, offset: 0 },
+        { label: 'High', count: 0, color: '#a855f7', percent: 0, dashArray: `0 ${circumference}`, offset: 0 },
+        { label: 'Medium', count: 0, color: '#00f0ff', percent: 0, dashArray: `0 ${circumference}`, offset: 0 },
+        { label: 'Low', count: 0, color: '#10b981', percent: 0, dashArray: `0 ${circumference}`, offset: 0 },
       ];
     }
 
     const items = [
       { label: 'Critical', count: counts.critical, color: '#f43f5e' },
-      { label: 'High', count: counts.high, color: '#f97316' },
-      { label: 'Medium', count: counts.medium, color: '#f59e0b' },
-      { label: 'Low', count: counts.low, color: '#06b6d4' },
+      { label: 'High', count: counts.high, color: '#a855f7' },
+      { label: 'Medium', count: counts.medium, color: '#00f0ff' },
+      { label: 'Low', count: counts.low, color: '#10b981' },
     ];
 
     let accumulatedOffset = 0;
@@ -70,11 +70,21 @@ export default function SeverityChart({ tickets = [], totalCount = 0 }: Severity
   }, [counts, circumference]);
 
   return (
-    <div className="bg-[#0d1428]/70 border border-white/[0.08] rounded-2xl p-5 shadow-lg backdrop-blur-xl flex flex-col justify-between h-full">
+    <div className="cyber-card p-5 sm:p-6 rounded-2xl flex flex-col justify-between h-full">
       {/* Header */}
-      <div className="pb-3 border-b border-slate-800/80">
-        <h2 className="text-sm font-bold text-white tracking-tight">Severity Distribution</h2>
-        <p className="text-xs text-slate-400">Current triage breakdown</p>
+      <div className="pb-3 border-b border-white/[0.08] flex items-center justify-between">
+        <div>
+          <h2 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <span>Severity Distribution</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              Triage
+            </span>
+          </h2>
+          <p className="text-xs text-slate-400">Deterministic incident classification</p>
+        </div>
+        <div className="text-xs font-mono text-cyan-300 font-bold">
+          {counts.total} Total
+        </div>
       </div>
 
       {/* Donut Chart Visual */}
@@ -103,44 +113,43 @@ export default function SeverityChart({ tickets = [], totalCount = 0 }: Severity
                   strokeWidth="12"
                   strokeDasharray={slice.dashArray}
                   strokeDashoffset={slice.offset}
-                  className="transition-all duration-500"
+                  className="transition-all duration-700 ease-out"
                 />
               ))}
           </svg>
 
-          {/* Center Callout */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-2xl font-extrabold text-white font-mono tracking-tight">
+          {/* Centered Total Count */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+            <span className="text-2xl font-black text-white font-mono tracking-tight drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
               {counts.total}
             </span>
-            <span className="text-[10px] font-medium text-slate-400 -mt-0.5">
-              Total
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest font-mono">
+              Incidents
             </span>
           </div>
         </div>
 
-        {/* Legend beside */}
-        <div className="space-y-2 w-full sm:w-auto">
-          {slices.map((slice, i) => (
-            <div key={i} className="flex items-center justify-between sm:justify-start gap-3 text-xs">
+        {/* Legend */}
+        <div className="grid grid-cols-2 sm:grid-cols-1 gap-2.5 w-full sm:w-auto">
+          {slices.map((slice, idx) => (
+            <div key={idx} className="flex items-center justify-between sm:gap-4 text-xs font-mono">
               <div className="flex items-center gap-2">
                 <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
-                  style={{ backgroundColor: slice.color }}
+                  className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_currentColor]"
+                  style={{ backgroundColor: slice.color, color: slice.color }}
                 />
-                <span className="text-slate-300 font-medium">{slice.label}</span>
+                <span className="text-slate-300">{slice.label}</span>
               </div>
-              <div className="flex items-center gap-2 font-mono">
-                <span className="font-bold text-white">{slice.count}</span>
-                <span className="text-[10px] text-slate-400">({slice.percent}%)</span>
-              </div>
+              <span className="font-bold text-white font-mono">{slice.count}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="pt-2 text-center border-t border-slate-800/80 text-[11px] text-slate-400 font-mono">
-        Deterministic triage policy: Rule R-001 through R-013
+      {/* Footer Info */}
+      <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-[11px] text-slate-400 font-mono">
+        <span>Rule R-001/R-002 triage</span>
+        <span className="text-cyan-400 font-bold">100% Grounded</span>
       </div>
     </div>
   );

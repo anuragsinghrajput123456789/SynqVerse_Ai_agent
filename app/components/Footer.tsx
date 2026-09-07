@@ -19,6 +19,7 @@ import {
   Cpu,
   Radio,
 } from 'lucide-react';
+import GrafityLogo from './ui/GrafityLogo';
 
 export default function Footer() {
   const scrollToTop = () => {
@@ -69,21 +70,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-12">
           {/* Col 1: Brand & Manifesto */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-400 p-[1.5px] shadow-lg shadow-indigo-600/30">
-                <div className="w-full h-full bg-[#080c18] rounded-[9px] flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-cyan-300 fill-cyan-400/20" />
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-lg font-black tracking-tight text-white">Grafity</span>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  ENTERPRISE
-                </span>
-              </div>
-            </div>
+            <GrafityLogo size={36} showText={true} showSubtitle={true} textSize="md" glow={true} animated={true} />
 
-            <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
+            <p className="text-xs text-slate-400 leading-relaxed max-w-sm pt-1">
               Autonomous AI logistics operations console powering high-velocity fleet dispatch, conflict resolution, real-time driver SOS telemetry, and grounded dispatch intelligence across multimodal freight corridors.
             </p>
 

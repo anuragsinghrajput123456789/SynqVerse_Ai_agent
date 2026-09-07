@@ -86,14 +86,19 @@ export default function RecentActivity({ events = [], loading = false }: RecentA
   // formatRelativeTime is defined outside the component — see module scope below
 
   return (
-    <div className="bg-[#0d1428]/70 border border-white/[0.08] rounded-2xl p-5 shadow-lg backdrop-blur-xl flex flex-col justify-between h-full">
+    <div className="cyber-card p-5 sm:p-6 rounded-2xl flex flex-col justify-between h-full">
       {/* Header */}
-      <div className="pb-3 border-b border-slate-800/80 flex items-center justify-between">
+      <div className="pb-3 border-b border-white/[0.08] flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-bold text-white tracking-tight">Recent Activity</h2>
-          <p className="text-xs text-slate-400">Autonomous audit &amp; dispatch events</p>
+          <h2 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <span>Forensic Audit Stream</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              Immutable
+            </span>
+          </h2>
+          <p className="text-xs text-slate-400">Autonomous audit &amp; dispatch event timeline</p>
         </div>
-        <Clock className="w-4 h-4 text-slate-400" />
+        <Clock className="w-4 h-4 text-cyan-400" />
       </div>
 
       {/* Activity Timeline */}

@@ -75,21 +75,24 @@ export default function RecentIncidents({ tickets = [], loading = false }: Recen
   // formatRelativeTime is defined at module scope above
 
   return (
-    <div className="bg-[#0d1428]/70 border border-white/[0.08] rounded-2xl shadow-lg backdrop-blur-xl overflow-hidden flex flex-col justify-between">
+    <div className="cyber-card rounded-2xl overflow-hidden flex flex-col justify-between">
       {/* Table Header */}
-      <div className="px-5 py-4 border-b border-slate-800/80 flex items-center justify-between">
+      <div className="px-5 py-4 border-b border-white/[0.08] flex items-center justify-between">
         <div>
-          <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
-            Recent Incidents
+          <h2 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <span>Recent Incident Triage</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              Live Queue
+            </span>
           </h2>
           <p className="text-xs text-slate-400">
-            Active breakdown triage &amp; automated dispatch decisions
+            Automated breakdown triage &amp; deterministic dispatch decisions
           </p>
         </div>
 
         <Link
           href="/tickets"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors font-mono"
         >
           <span>View All</span>
           <ArrowRight className="w-3.5 h-3.5" />
