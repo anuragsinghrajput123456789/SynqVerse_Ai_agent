@@ -7,7 +7,11 @@ import { maskPii } from '../pii';
 export * from './types';
 export * from './repository';
 
-let sosSequence = 1040;
+function generateEmergencyId(): string {
+  const timestampPart = Date.now().toString(36).toUpperCase();
+  const randomPart = Math.floor(100 + Math.random() * 900);
+  return `SOS-${timestampPart}-${randomPart}`;
+}
 
 export class EmergencyService {
   private static instance: EmergencyService;
@@ -49,12 +53,11 @@ export class EmergencyService {
     }
 
     // 2. Server-side Idempotency: Return existing active emergency if triggered within 15 mins
-    const existingActive = await this.repo.findAll();
+    const existingActive = await this.repo.findActive();
     const fifteenMinsAgo = Date.now() - 15 * 60 * 1000;
     const duplicate = existingActive.find(
       (e) =>
         e.driverId === input.driverId &&
-        (e.status === 'ACTIVE' || e.status === 'ACKNOWLEDGED' || e.status === 'RESPONDING') &&
         new Date(e.triggeredAt).getTime() > fifteenMinsAgo
     );
 
@@ -62,9 +65,8 @@ export class EmergencyService {
       return duplicate;
     }
 
-    sosSequence++;
     const now = new Date().toISOString();
-    const id = `SOS-${sosSequence}`;
+    const id = generateEmergencyId();
 
     // 3. Resolve Vehicle details
     let vehicleId = 'TRK-104';

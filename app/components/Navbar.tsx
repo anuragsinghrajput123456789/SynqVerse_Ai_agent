@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Zap, Search, Menu, X } from 'lucide-react';
+import { Search, Menu, X } from 'lucide-react';
 import NavLinks from './navbar/NavLinks';
 import NavUserMenu from './navbar/NavUserMenu';
 import NavMobileMenu from './navbar/NavMobileMenu';

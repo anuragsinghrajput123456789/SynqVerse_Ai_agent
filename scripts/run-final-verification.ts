@@ -3,20 +3,16 @@
  * Executes all 12 comprehensive tests against real datasets and engine components.
  */
 
-import fs from 'fs';
-import path from 'path';
 import { runIngestion } from '../lib/ingestion';
 import { BreakdownQueueService } from '../lib/queue';
 import { processQueue } from '../lib/pipeline';
 import {
   QueueRepository,
   DecisionRepository,
-  VehicleRepository,
   DriverRepository,
-  ClientRepository,
 } from '../lib/repositories';
 import { WorkOrderRepository } from '../lib/work-orders';
-import { ApprovalRepository, createApproval, approveMessage, rejectMessage } from '../lib/approvals';
+import { ApprovalRepository, createApproval, approveMessage } from '../lib/approvals';
 import { AuditLogRepository } from '../lib/audit';
 import { EntityResolver } from '../lib/entity-resolution';
 import { ConflictResolver, FieldCandidate } from '../lib/conflict-resolution';
@@ -122,17 +118,15 @@ async function runFinalVerification() {
   console.log('Base datasets ingested:', ingestSummary);
 
   const queueService = BreakdownQueueService.getInstance();
-  const queueRepo = new QueueRepository();
   const woRepo = new WorkOrderRepository();
   const approvalRepo = new ApprovalRepository();
   const auditRepo = new AuditLogRepository();
-  const decisionRepo = new DecisionRepository();
 
   // ---------------------------------------------------------
   // TEST 1: Process the original ticket queue
   // ---------------------------------------------------------
   console.log('\n--- TEST 1: Process Original Ticket Queue ---');
-  const queueIngestRes = await queueService.ingestTickets();
+  await queueService.ingestTickets();
   const pipelineRes1 = await processQueue();
 
   const test1Stats = {

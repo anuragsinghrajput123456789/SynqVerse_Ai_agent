@@ -21,7 +21,7 @@
 
 *Grafity is a production-hardened, portfolio-ready autonomous AI logistics operations platform engineered for high-velocity fleet orchestration, real-time highway emergency response, deterministic conflict resolution, and zero-hallucination multimodal dispatch.*
 
-[Features](#-core-capabilities) • [Architecture](#-system-architecture) • [Live Telemetry & SOS](#-driver-safety--real-time-location) • [Grounded Copilot](#-grounded-copilot--voice-agent) • [Analytics](#-7-section-executive-admin-analytics) • [Quick Start](#-quick-start) • [API Reference](#-api-reference)
+[Documentation Hub](docs/README.md) • [Features](#-core-capabilities) • [Architecture](#-system-architecture) • [Live Telemetry & SOS](#-driver-safety--real-time-location) • [Grounded Copilot](#-grounded-copilot--voice-agent) • [Analytics](#-7-section-executive-admin-analytics) • [Quick Start](#-quick-start) • [API Reference](#-api-reference)
 
 ---
 

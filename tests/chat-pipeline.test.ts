@@ -11,10 +11,8 @@
  */
 
 import { runIngestion } from '../lib/ingestion';
-import { UnifiedContextStore } from '../lib/context';
-import { chatAnswer, retrieveContextFacts } from '../lib/query/chat';
+import { chatAnswer } from '../lib/query/chat';
 import * as aiModule from '../lib/ai/gemini';
-import { Fact } from '../lib/ai/types';
 import { AuditLogRepository } from '../lib/audit/repository';
 import { hasRawPiiLeaks, maskTextPii, REDACTED } from '../lib/pii';
 import {
@@ -84,7 +82,7 @@ async function runChatPipelineTestSuite() {
   let geminiCallCount = 0;
 
   // Set spy handler
-  aiModule.__setGenerateAnswerHandler(async (prompt: string, facts: Fact[]) => {
+  aiModule.__setGenerateAnswerHandler(async () => {
     geminiCallCount++;
     return 'Mock answer';
   });

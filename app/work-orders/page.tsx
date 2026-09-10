@@ -27,98 +27,43 @@ interface WorkOrderItem {
   idempotencyVerified: boolean;
 }
 
-function createDefaultOrders(): WorkOrderItem[] {
-  const now = Date.now();
-  return [
-    {
-      workOrderId: 'WO-1042-DISPATCH',
-      ticketId: 'BRK-1042',
-      originalVehicle: 'TRK-104',
-      replacementVehicle: 'TRK-121',
-      workshop: 'Mumbai Central Heavy Depot',
-      status: 'IN_PROGRESS',
-      createdAt: new Date(now - 45 * 60 * 1000).toISOString(),
-      estimatedArrivalMin: 22,
-      idempotencyVerified: true,
-    },
-    {
-      workOrderId: 'WO-1041-REPAIR',
-      ticketId: 'BRK-1041',
-      originalVehicle: 'TRK-221',
-      replacementVehicle: 'TRK-221 (Self)',
-      workshop: 'Jamnagar Quick Service Bay',
-      status: 'COMPLETED',
-      createdAt: new Date(now - 3 * 3600 * 1000).toISOString(),
-      estimatedArrivalMin: 0,
-      idempotencyVerified: true,
-    },
-    {
-      workOrderId: 'WO-1039-DISPATCH',
-      ticketId: 'BRK-1039',
-      originalVehicle: 'TRK-118',
-      replacementVehicle: 'TRK-412',
-      workshop: 'Jamshedpur Fleet Hub',
-      status: 'ASSIGNED',
-      createdAt: new Date(now - 6 * 3600 * 1000).toISOString(),
-      estimatedArrivalMin: 35,
-      idempotencyVerified: true,
-    },
-    {
-      workOrderId: 'WO-1038-ROADSIDE',
-      ticketId: 'BRK-1038',
-      originalVehicle: 'TRK-290',
-      replacementVehicle: 'TRK-290 (Self)',
-      workshop: 'Nagpur Mobile Van #4',
-      status: 'COMPLETED',
-      createdAt: new Date(now - 8 * 3600 * 1000).toISOString(),
-      estimatedArrivalMin: 0,
-      idempotencyVerified: true,
-    },
-    {
-      workOrderId: 'WO-1037-DISPATCH',
-      ticketId: 'BRK-1037',
-      originalVehicle: 'TRK-330',
-      replacementVehicle: 'TRK-145',
-      workshop: 'Vijayanagar Steel Yard Service',
-      status: 'CREATED',
-      createdAt: new Date(now - 10 * 3600 * 1000).toISOString(),
-      estimatedArrivalMin: 50,
-      idempotencyVerified: true,
-    },
-  ];
-}
-
 export default function WorkOrdersPage() {
-  const [orders, setOrders] = useState<WorkOrderItem[]>(() => createDefaultOrders());
-
-  const [loading, setLoading] = useState(false);
+  const [orders, setOrders] = useState<WorkOrderItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   const fetchLiveOrders = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch('/api/work-orders');
       if (res.ok) {
         const data = await res.json();
-        if (data && data.length > 0) {
+        if (Array.isArray(data)) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mapped = data.map((item: any) => ({
-            workOrderId: item.workOrderId || `WO-${item.ticketId}`,
-            ticketId: item.ticketId || 'BRK-1042',
-            originalVehicle: item.originalVehicle || 'TRK-104',
-            replacementVehicle: item.replacementVehicle || 'TRK-121',
+            workOrderId: item.workOrderId || item.id || `WO-${item.ticketId}`,
+            ticketId: item.ticketId || 'BRK-UNKNOWN',
+            originalVehicle: item.originalVehicle || 'TRK-UNKNOWN',
+            replacementVehicle: item.replacementVehicle || item.replacementVehicleId || 'None',
             workshop: item.workshop || 'Regional Depot Hub',
             status: item.status || 'IN_PROGRESS',
             createdAt: item.createdAt || new Date().toISOString(),
-            estimatedArrivalMin: item.estimatedArrivalMin || 25,
+            estimatedArrivalMin: item.estimatedArrivalMin ?? 0,
             idempotencyVerified: true,
           }));
           setOrders(mapped);
+        } else {
+          setOrders([]);
         }
+      } else {
+        throw new Error(`Failed to load work orders (HTTP ${res.status})`);
       }
-    } catch {
-      // Keep mock orders
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unable to load work orders.');
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -197,6 +142,18 @@ export default function WorkOrdersPage() {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={fetchLiveOrders}
+            className="px-3 py-1 bg-rose-900/60 hover:bg-rose-800 text-white rounded-lg font-semibold cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Operational Guarantee Callout */}
       <div className="p-4 rounded-3xl glass-panel border border-indigo-500/20 flex items-center justify-between gap-4">

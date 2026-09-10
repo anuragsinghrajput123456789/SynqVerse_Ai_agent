@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/build.js",
+    "build": "node scripts/build.mjs",
     "start": "next start",
     "lint": "eslint",
     "ingest": "tsx scripts/run-ingestion.ts",

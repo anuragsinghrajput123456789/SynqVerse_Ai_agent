@@ -1,6 +1,6 @@
 import { Db } from 'mongodb';
 import { getMongoDb } from '../db/mongodb';
-import { DriverLocation, FleetSummaryStats } from './types';
+import { DriverLocation, FleetSummaryStats, calculateFreshness } from './types';
 
 // Pre-seeded authentic fleet locations based on drivers_roster.csv and fleet_master.csv
 const defaultFleet: DriverLocation[] = [
@@ -224,32 +224,38 @@ export class LocationRepository {
 
   public async findByDriverId(driverId: string): Promise<DriverLocation | null> {
     const mem = inMemoryLocations.get(driverId);
-    if (mem) return mem;
+    if (mem) {
+      return { ...mem, freshness: calculateFreshness(mem.lastUpdated) };
+    }
 
     const db = await getDb();
     if (db) {
       const col = db.collection<DriverLocation>('driver_locations');
       const found = await col.findOne({ driverId });
       if (found) {
-        inMemoryLocations.set(driverId, found);
-        return found;
+        const enriched = { ...found, freshness: calculateFreshness(found.lastUpdated) };
+        inMemoryLocations.set(driverId, enriched);
+        return enriched;
       }
     }
     return null;
   }
 
   public async findAll(): Promise<DriverLocation[]> {
-    const list = Array.from(inMemoryLocations.values());
+    let list = Array.from(inMemoryLocations.values());
     const db = await getDb();
     if (db && list.length === 0) {
       const col = db.collection<DriverLocation>('driver_locations');
       const dbList = await col.find({}).toArray();
       if (dbList.length > 0) {
         dbList.forEach((d) => inMemoryLocations.set(d.driverId, d));
-        return dbList;
+        list = dbList;
       }
     }
-    return list;
+    return list.map((loc) => ({
+      ...loc,
+      freshness: calculateFreshness(loc.lastUpdated),
+    }));
   }
 
   public async getFleetStats(): Promise<FleetSummaryStats> {

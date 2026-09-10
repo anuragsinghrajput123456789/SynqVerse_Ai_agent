@@ -32,126 +32,6 @@ interface TicketItem {
   approvalStatus: string | null;
 }
 
-function createDefaultTickets(): TicketItem[] {
-  const now = Date.now();
-  return [
-    {
-      ticketId: 'BRK-1042',
-      canonicalTicketId: 'BRK-1042',
-      createdAt: new Date(now - 2 * 3600 * 1000).toISOString(),
-      vehicle: 'TRK-104',
-      driverId: 'DRV-8821',
-      client: 'Shakti Cement',
-      issue: 'Brake Disc Overheating & Caliper Lock',
-      originHub: 'Mumbai Central',
-      destination: 'Delhi Industrial Corridor',
-      severity: 'CRITICAL',
-      status: 'IN_PROGRESS',
-      isQuarantined: false,
-      isDuplicate: false,
-      action: 'REPLACEMENT_DISPATCHED',
-      replacementVehicle: 'TRK-121',
-      workOrderId: 'WO-1042',
-      approvalStatus: 'PENDING',
-    },
-    {
-      ticketId: 'BRK-1041',
-      canonicalTicketId: 'BRK-1041',
-      createdAt: new Date(now - 3 * 3600 * 1000).toISOString(),
-      vehicle: 'TRK-221',
-      driverId: 'DRV-4412',
-      client: 'Reliance',
-      issue: 'Engine Coolant Leakage',
-      originHub: 'Jamnagar Hub',
-      destination: 'Dahej Petrochemical',
-      severity: 'HIGH',
-      status: 'RESOLVED',
-      isQuarantined: false,
-      isDuplicate: false,
-      action: 'ROADSIDE_REPAIRED',
-      replacementVehicle: null,
-      workOrderId: 'WO-1041',
-      approvalStatus: 'APPROVED',
-    },
-    {
-      ticketId: 'BRK-1040',
-      canonicalTicketId: 'BRK-1040',
-      createdAt: new Date(now - 5 * 3600 * 1000).toISOString(),
-      vehicle: 'TRK-308',
-      driverId: 'DRV-1930',
-      client: 'Adani',
-      issue: 'Transmission Sensor Error',
-      originHub: 'Mundra Port',
-      destination: 'Ahmedabad Logistics Park',
-      severity: 'LOW',
-      status: 'PENDING',
-      isQuarantined: false,
-      isDuplicate: false,
-      action: 'QUEUED',
-      replacementVehicle: null,
-      workOrderId: null,
-      approvalStatus: null,
-    },
-    {
-      ticketId: 'BRK-1039',
-      canonicalTicketId: 'BRK-1039',
-      createdAt: new Date(now - 6 * 3600 * 1000).toISOString(),
-      vehicle: 'TRK-118',
-      driverId: 'DRV-5529',
-      client: 'Tata Steel',
-      issue: 'Suspension Leaf Spring Fracture',
-      originHub: 'Jamshedpur Works',
-      destination: 'Kolkata Dockyard',
-      severity: 'MEDIUM',
-      status: 'IN_PROGRESS',
-      isQuarantined: false,
-      isDuplicate: false,
-      action: 'REPLACEMENT_DISPATCHED',
-      replacementVehicle: 'TRK-412',
-      workOrderId: 'WO-1039',
-      approvalStatus: 'APPROVED',
-    },
-    {
-      ticketId: 'BRK-1038',
-      canonicalTicketId: 'BRK-1038',
-      createdAt: new Date(now - 8 * 3600 * 1000).toISOString(),
-      vehicle: 'TRK-290',
-      driverId: 'DRV-7811',
-      client: 'Ultratech',
-      issue: 'Alternator Belt Slippage',
-      originHub: 'Nagpur Depot',
-      destination: 'Pune Distribution Hub',
-      severity: 'RESOLVED',
-      status: 'RESOLVED',
-      isQuarantined: false,
-      isDuplicate: false,
-      action: 'RESOLVED',
-      replacementVehicle: null,
-      workOrderId: 'WO-1038',
-      approvalStatus: 'APPROVED',
-    },
-    {
-      ticketId: 'BRK-1037',
-      canonicalTicketId: 'BRK-1037',
-      createdAt: new Date(now - 10 * 3600 * 1000).toISOString(),
-      vehicle: 'TRK-330',
-      driverId: 'DRV-9014',
-      client: 'JSW',
-      issue: 'Air Brake Pressure Drop',
-      originHub: 'Vijayanagar Steel Plant',
-      destination: 'Chennai Port',
-      severity: 'HIGH',
-      status: 'IN_PROGRESS',
-      isQuarantined: false,
-      isDuplicate: false,
-      action: 'REPLACEMENT_DISPATCHED',
-      replacementVehicle: 'TRK-145',
-      workOrderId: 'WO-1037',
-      approvalStatus: 'PENDING',
-    },
-  ];
-}
-
 function getRelativeTime(isoString: string): string {
   const diffHours = Math.round((Date.now() - new Date(isoString).getTime()) / (3600 * 1000));
   if (isNaN(diffHours) || diffHours <= 0) return 'Just now';
@@ -160,30 +40,30 @@ function getRelativeTime(isoString: string): string {
 
 export default function TicketsPage() {
   const router = useRouter();
-  const [defaultMockTickets] = useState<TicketItem[]>(() => createDefaultTickets());
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [severityFilter, setSeverityFilter] = useState('ALL');
 
   const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch('/api/tickets');
       if (res.ok) {
         const data = await res.json();
-        if (data && data.length > 0) {
-          setTickets(data);
-          return;
-        }
+        setTickets(Array.isArray(data) ? data : []);
+      } else {
+        throw new Error(`Failed to load incident tickets (HTTP ${res.status})`);
       }
-      setTickets(defaultMockTickets);
-    } catch {
-      setTickets(defaultMockTickets);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unable to load tickets.');
+      setTickets([]);
     } finally {
       setLoading(false);
     }
-  }, [defaultMockTickets]);
+  }, []);
 
   useEffect(() => {
     fetchTickets();
@@ -275,6 +155,18 @@ export default function TicketsPage() {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={fetchTickets}
+            className="px-3 py-1 bg-rose-900/60 hover:bg-rose-800 text-white rounded-lg font-semibold cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Filter Chips matching screenshot */}
       <div className="flex flex-wrap items-center gap-2">

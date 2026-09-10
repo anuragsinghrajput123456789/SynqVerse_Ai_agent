@@ -1,5 +1,11 @@
 import { LocationRepository } from './repository';
-import { DriverLocation, LocationHistoryPoint, LocationIngestInput, FleetSummaryStats } from './types';
+import {
+  DriverLocation,
+  LocationHistoryPoint,
+  LocationIngestInput,
+  FleetSummaryStats,
+  calculateFreshness,
+} from './types';
 import { DriverRepository, VehicleRepository } from '../repositories';
 
 export * from './types';
@@ -84,6 +90,7 @@ export class LocationService {
       clientName: existing?.clientName,
       lastUpdated: now,
       isLive: true,
+      freshness: calculateFreshness(now),
       emergencyId: existing?.emergencyId,
       history,
     };

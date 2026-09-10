@@ -13,6 +13,30 @@ export interface DriverGeoState {
   isStreaming: boolean;
   error: string | null;
   isOffline: boolean;
+  queuedUpdatesCount: number;
+}
+
+interface QueuedLocationPoint {
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  speed?: number;
+  heading?: number;
+  time: string;
+}
+
+function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // meters
+  const rad1 = (lat1 * Math.PI) / 180;
+  const rad2 = (lat2 * Math.PI) / 180;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(rad1) * Math.cos(rad2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 export function useDriverLocation(driverId: string, vehicleRegistration?: string) {
@@ -27,14 +51,17 @@ export function useDriverLocation(driverId: string, vehicleRegistration?: string
     isStreaming: false,
     error: null,
     isOffline: false,
+    queuedUpdatesCount: 0,
   });
 
   const watchIdRef = useRef<number | null>(null);
-  const queueRef = useRef<Array<{ lat: number; lng: number; time: string }>>([]);
+  const queueRef = useRef<QueuedLocationPoint[]>([]);
+  const lastPushTimeRef = useRef<number>(0);
+  const lastPushCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  // Send coordinates to backend
-  const pushLocation = useCallback(
-    async (lat: number, lng: number, accuracy?: number, speed?: number, heading?: number) => {
+  // Send single coordinate payload to backend
+  const sendLocationPayload = useCallback(
+    async (point: QueuedLocationPoint): Promise<boolean> => {
       try {
         const res = await fetch('/api/location', {
           method: 'POST',
@@ -42,28 +69,98 @@ export function useDriverLocation(driverId: string, vehicleRegistration?: string
           body: JSON.stringify({
             driverId,
             vehicleRegistration,
-            latitude: lat,
-            longitude: lng,
-            accuracyMeters: accuracy || 10,
-            speedKmH: speed || 0,
-            heading: heading || 0,
-            timestamp: new Date().toISOString(),
+            latitude: point.lat,
+            longitude: point.lng,
+            accuracyMeters: point.accuracy || 10,
+            speedKmH: point.speed || 0,
+            heading: point.heading || 0,
+            timestamp: point.time,
           }),
         });
 
-        if (res.ok) {
-          setState((prev) => ({ ...prev, isOffline: false, error: null }));
-          // Drain queued points if any
-          queueRef.current = [];
-        } else {
-          throw new Error('Server returned ' + res.status);
-        }
+        return res.ok;
       } catch {
-        queueRef.current.push({ lat, lng, time: new Date().toISOString() });
-        setState((prev) => ({ ...prev, isOffline: true }));
+        return false;
       }
     },
     [driverId, vehicleRegistration]
+  );
+
+  // Drain offline queue when online connection is recovered
+  const drainQueue = useCallback(async () => {
+    if (queueRef.current.length === 0) return;
+    const items = [...queueRef.current];
+    const latest = items[items.length - 1];
+
+    // Push the latest consolidated position to restore state
+    const success = await sendLocationPayload(latest);
+    if (success) {
+      queueRef.current = [];
+      setState((prev) => ({ ...prev, isOffline: false, queuedUpdatesCount: 0, error: null }));
+    }
+  }, [sendLocationPayload]);
+
+  // Send coordinates to backend with client-side throttling (min 5s interval unless rapid motion)
+  const pushLocation = useCallback(
+    async (lat: number, lng: number, accuracy?: number, speed?: number, heading?: number, force = false) => {
+      const nowMs = Date.now();
+      const timeSinceLastPush = nowMs - lastPushTimeRef.current;
+
+      let distance = 0;
+      if (lastPushCoordsRef.current) {
+        distance = computeDistanceMeters(
+          lastPushCoordsRef.current.lat,
+          lastPushCoordsRef.current.lng,
+          lat,
+          lng
+        );
+      }
+
+      // Throttling heuristic:
+      // Minimum 5 seconds between network transmissions UNLESS forced OR rapid movement (>50m or speed > 15 km/h)
+      const isSignificantMovement = distance > 50 || (speed !== undefined && speed > 15);
+      const shouldPush = force || timeSinceLastPush >= 5000 || (isSignificantMovement && timeSinceLastPush >= 2500);
+
+      const point: QueuedLocationPoint = {
+        lat,
+        lng,
+        accuracy: accuracy || 10,
+        speed: speed || 0,
+        heading: heading || 0,
+        time: new Date().toISOString(),
+      };
+
+      if (!shouldPush) {
+        return;
+      }
+
+      // If browser is actively offline, queue and return
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        queueRef.current.push(point);
+        if (queueRef.current.length > 50) queueRef.current.shift();
+        setState((prev) => ({ ...prev, isOffline: true, queuedUpdatesCount: queueRef.current.length }));
+        return;
+      }
+
+      const success = await sendLocationPayload(point);
+      if (success) {
+        lastPushTimeRef.current = nowMs;
+        lastPushCoordsRef.current = { lat, lng };
+        setState((prev) => ({ ...prev, isOffline: false, queuedUpdatesCount: 0, error: null }));
+        if (queueRef.current.length > 0) {
+          queueRef.current = [];
+        }
+      } else {
+        queueRef.current.push(point);
+        if (queueRef.current.length > 50) queueRef.current.shift();
+        setState((prev) => ({
+          ...prev,
+          isOffline: true,
+          queuedUpdatesCount: queueRef.current.length,
+        }));
+      }
+    },
+    [sendLocationPayload]
   );
 
   const startTracking = useCallback(() => {
@@ -88,6 +185,7 @@ export function useDriverLocation(driverId: string, vehicleRegistration?: string
         const hdg = pos.coords.heading || 0;
         const now = new Date().toISOString();
 
+        // Local state updates immediately for butter-smooth UI gauges
         setState((prev) => ({
           ...prev,
           permission: 'granted',
@@ -100,6 +198,7 @@ export function useDriverLocation(driverId: string, vehicleRegistration?: string
           error: null,
         }));
 
+        // Network telemetry transmission is throttled
         pushLocation(lat, lng, acc, spd, hdg);
       },
       (err) => {
@@ -120,7 +219,7 @@ export function useDriverLocation(driverId: string, vehicleRegistration?: string
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 5000,
+        maximumAge: 4000,
       }
     );
   }, [pushLocation]);
@@ -133,13 +232,29 @@ export function useDriverLocation(driverId: string, vehicleRegistration?: string
     setState((prev) => ({ ...prev, isStreaming: false }));
   }, []);
 
+  // Set up online/offline event listeners for automatic queue drain
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleOnline = () => {
+      drainQueue();
+    };
+
+    const handleOffline = () => {
+      setState((prev) => ({ ...prev, isOffline: true }));
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
       if (watchIdRef.current !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, []);
+  }, [drainQueue]);
 
   return {
     ...state,

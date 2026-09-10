@@ -83,11 +83,9 @@ export class BreakdownQueueService {
     if (options.customTickets) {
       rawList = options.customTickets;
     } else {
-      const ticketsPath = options.dataDir 
-        ? path.join(/*turbopackIgnore: true*/ options.dataDir, sourceFileName)
-        : path.join(process.cwd(), 'data', sourceFileName);
-      if (fs.existsSync(ticketsPath)) {
-        const content = fs.readFileSync(ticketsPath, 'utf-8');
+      const ticketsPath = path.join(/*turbopackIgnore: true*/ dataDir, sourceFileName);
+      if (fs.existsSync(/*turbopackIgnore: true*/ ticketsPath)) {
+        const content = fs.readFileSync(/*turbopackIgnore: true*/ ticketsPath, 'utf-8');
         rawList = JSON.parse(content) as Record<string, unknown>[];
       }
     }
