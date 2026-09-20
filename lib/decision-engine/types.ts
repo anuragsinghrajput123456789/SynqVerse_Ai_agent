@@ -9,12 +9,15 @@ export interface DispatcherRule {
   ruleId: string;
   name: string;
   condition: string;
+  description?: string;
+  conditions?: string[];
   decision: string;
   priority: number;
   source: string;
   sourceReference: string;
-  category?: 'route' | 'seasonal' | 'vehicle' | 'maintenance' | 'client' | 'driver' | 'severity' | 'sla';
+  category?: 'route' | 'seasonal' | 'vehicle' | 'maintenance' | 'client' | 'driver' | 'severity' | 'sla' | string;
 }
+
 
 export interface RuleEvaluationResult<T = unknown> {
   decision: T;
@@ -70,7 +73,16 @@ export interface VehicleSelectionResult extends RuleEvaluationResult<CandidateVe
   rejectedCandidates: CandidateVehicleEvaluation[];
 }
 
-export interface FullOperationalDecision {
+export interface OperationalDecisionStandard {
+  decision: 'VEHICLE_REPLACEMENT' | 'ROADSIDE_REPAIR' | 'WORKSHOP_TOW' | 'INSUFFICIENT_DATA' | 'MANUAL_OVERRIDE_REQUIRED' | 'DUPLICATE_SKIPPED';
+  reason: string;
+  rulesApplied: DispatcherRule[];
+  inputsUsed: Record<string, unknown>;
+  rejectedReasons: string[];
+  timestamp: string;
+}
+
+export interface FullOperationalDecision extends OperationalDecisionStandard {
   decisionId: string;
   ticketId: string;
   createdAt: string;
@@ -85,3 +97,4 @@ export interface FullOperationalDecision {
   conflicts: Conflict[];
   explanation: string;
 }
+

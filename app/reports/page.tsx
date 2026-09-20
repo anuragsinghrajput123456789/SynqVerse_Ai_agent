@@ -30,10 +30,12 @@ export default function ReportsAnalyticsPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrderMetrics | null>(null);
   const [aiUsage, setAiUsage] = useState<AiUsageMetrics | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toISOString());
+  const [error, setError] = useState<string | null>(null);
 
   const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const queryParams = new URLSearchParams({ range: dateRange });
       if (dateRange === 'custom') {
         if (customStart) queryParams.set('startDate', customStart);
@@ -75,12 +77,14 @@ export default function ReportsAnalyticsPage() {
         setAiUsage(d.data);
       }
       setLastUpdated(new Date().toISOString());
-    } catch {
-      // Graceful degradation on connection failure
+    } catch (err: unknown) {
+      console.error('Failed to load analytics telemetry:', err);
+      setError(err instanceof Error ? err.message : 'Unable to connect to analytics telemetry service');
     } finally {
       setLoading(false);
     }
   }, [dateRange, customStart, customEnd]);
+
 
   useEffect(() => {
     fetchAnalytics();
@@ -201,6 +205,19 @@ export default function ReportsAnalyticsPage() {
           </button>
         </div>
       )}
+
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={() => fetchAnalytics()}
+            className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
 
       {/* Interactive Tooltip Bar if hovering */}
       {hoveredPoint && (

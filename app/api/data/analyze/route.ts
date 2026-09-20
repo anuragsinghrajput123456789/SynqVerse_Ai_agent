@@ -1,42 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
+import { ExtractedLogisticsRecord, DocumentAnalysisResult } from '@/lib/types/data-studio';
 
-export interface ExtractedLogisticsRecord {
-  id: string;
-  vehicleId: string;
-  driverName: string;
-  status: 'NOMINAL' | 'ACTIVE' | 'DELAYED' | 'BREAKDOWN' | 'CRITICAL' | 'MAINTENANCE' | 'UNKNOWN';
-  corridor: string;
-  delayHours: number;
-  estimatedCost: number;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  notes: string;
-  timestamp: string;
-  raw: Record<string, unknown>;
-}
-
-export interface DocumentAnalysisResult {
-  fileName: string;
-  fileType: string;
-  recordCount: number;
-  records: ExtractedLogisticsRecord[];
-  summary: {
-    totalRecords: number;
-    nominalCount: number;
-    delayedCount: number;
-    criticalBreakdownCount: number;
-    maintenanceCount: number;
-    operationalRatePct: number;
-    totalDelayHours: number;
-    totalEstimatedCost: number;
-    topCorridor: string;
-  };
-  insights: string[];
-  recommendations: string[];
-}
+export type { ExtractedLogisticsRecord, DocumentAnalysisResult };
 
 export async function POST(req: NextRequest) {
+
   try {
     const contentType = req.headers.get('content-type') || '';
 

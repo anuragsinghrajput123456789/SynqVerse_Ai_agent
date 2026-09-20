@@ -29,19 +29,22 @@ export default function RecentIncidentsCard() {
       try {
         const res = await fetch('/api/tickets');
         if (res.ok) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const data: any[] = await res.json();
-          if (data && data.length > 0) {
-            const mapped = data.slice(0, 5).map((t, idx) => ({
-              ticketId: t.ticketId || `BRK-10${42 - idx}`,
-              vehicle: t.vehicle || 'TRK-104',
-              severity: t.severity === 'CRITICAL' ? 'Critical' : t.severity === 'HIGH' ? 'Critical' : t.severity === 'LOW' ? 'Low' : 'Medium',
-              timeAgo: `${2 + idx}h ago`,
-              status: t.status || 'IN_PROGRESS',
-            }));
+          const data: unknown = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const mapped = data.slice(0, 5).map((item, idx) => {
+              const t = item as Record<string, unknown>;
+              return {
+                ticketId: String(t.ticketId || `BRK-10${42 - idx}`),
+                vehicle: String(t.vehicle || 'TRK-104'),
+                severity: t.severity === 'CRITICAL' ? 'Critical' : t.severity === 'HIGH' ? 'Critical' : t.severity === 'LOW' ? 'Low' : 'Medium',
+                timeAgo: `${2 + idx}h ago`,
+                status: String(t.status || 'IN_PROGRESS'),
+              };
+            });
             setIncidents(mapped);
           }
         }
+
       } catch {
         // Use default fallback
       }

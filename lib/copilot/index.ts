@@ -14,6 +14,22 @@ import {
   CopilotQueryResponse,
 } from './types';
 
+// In-memory request deduplication cache (60 seconds TTL)
+interface CachedResponse {
+  result: CopilotQueryResponse;
+  expiresAt: number;
+}
+const deduplicationCache = new Map<string, CachedResponse>();
+
+function getCacheKey(question: string, history?: Array<{ role: string; content: string }>): string {
+  const normQ = question.trim().toLowerCase();
+  const histSnippet = (history || [])
+    .slice(-2)
+    .map((h) => `${h.role}:${h.content.trim().toLowerCase()}`)
+    .join('|');
+  return `${normQ}::${histSnippet}`;
+}
+
 export async function answerCopilotQuery(
   rawRequest: CopilotQueryRequest
 ): Promise<CopilotQueryResponse> {
@@ -24,16 +40,27 @@ export async function answerCopilotQuery(
     return {
       answer: `Invalid question: ${errorMsg}`,
       status: 'error',
+      citations: [],
+      confidence: 'low',
+      insufficientData: false,
+      sourcesUsed: [],
       sources: [],
       entities: [],
       rules: [],
       conflicts: [],
-      confidence: 'low',
       error: errorMsg,
     };
   }
 
   const { question, conversationHistory } = validation.data;
+
+  // 2. Request Deduplication Check
+  const cacheKey = getCacheKey(question, conversationHistory);
+  const now = Date.now();
+  const cached = deduplicationCache.get(cacheKey);
+  if (cached && now < cached.expiresAt) {
+    return cached.result;
+  }
 
   // 2. Query Parsing & Conversational Follow-up Resolution
   const { entities, intent } = parseQuery(question, conversationHistory);
@@ -49,6 +76,14 @@ export async function answerCopilotQuery(
 
   // 6. Response Validation, Citation Verification & PII Leak Guard
   const validatedResponse = validateCopilotResponse(rawOutput, rankedContext, entities);
+
+  // Cache response for 60 seconds to deduplicate rapid repeated queries
+  if (validatedResponse.status !== 'error') {
+    deduplicationCache.set(cacheKey, {
+      result: validatedResponse,
+      expiresAt: Date.now() + 60 * 1000,
+    });
+  }
 
   return validatedResponse;
 }

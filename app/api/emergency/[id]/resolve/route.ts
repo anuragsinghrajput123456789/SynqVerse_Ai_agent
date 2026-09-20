@@ -3,9 +3,9 @@ import { EmergencyService } from '@/lib/emergency';
 
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(
+async function handleResolve(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  params: Promise<{ id: string }>
 ) {
   try {
     const { id } = await params;
@@ -15,7 +15,11 @@ export async function PATCH(
     try {
       const body = await req.json();
       if (body.actor) actor = body.actor;
+      else if (body.resolvedBy) actor = body.resolvedBy;
+
       if (body.resolutionNote) resolutionNote = body.resolutionNote;
+      else if (body.resolutionNotes) resolutionNote = body.resolutionNotes;
+      else if (body.notes) resolutionNote = body.notes;
     } catch {
       // Default fallback
     }
@@ -39,4 +43,18 @@ export async function PATCH(
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return handleResolve(req, params);
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return handleResolve(req, params);
 }

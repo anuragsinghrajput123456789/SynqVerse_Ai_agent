@@ -1,8 +1,7 @@
-import { GoogleGenAI } from '@google/genai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
 import { SourceCitation } from '../types';
 import { Fact } from './types';
+import { geminiProvider } from './provider';
 
 export * from './types';
 
@@ -13,7 +12,6 @@ export const GroundedAnswerSchema = z.object({
 });
 
 export type GroundedAnswerPayload = z.infer<typeof GroundedAnswerSchema>;
-
 
 export const MechanicNoteInterpretationSchema = z.object({
   issueCategory: z.string(),
@@ -36,14 +34,11 @@ export async function interpretUnstructuredNote(note: string): Promise<MechanicN
     confidence: 0.8,
   };
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || !note.trim()) {
+  if (!note.trim() || !geminiProvider.isConfigured()) {
     return defaultFallback;
   }
 
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const prompt = `You are a freight mechanics text analyzer for Indian trucking operations.
+  const prompt = `You are a freight mechanics text analyzer for Indian trucking operations.
 Analyze the following maintenance/breakdown note (which may contain mixed Hindi/English/Hinglish terms like "jugaad", "chalu kiya", "wire bandha", "pending").
 Return ONLY a valid JSON object matching:
 {
@@ -58,24 +53,17 @@ Return ONLY a valid JSON object matching:
 NOTE:
 ${note}`;
 
-    const res = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
+  const res = await geminiProvider.generateStructuredJson<MechanicNoteInterpretation>({
+    prompt,
+    schema: MechanicNoteInterpretationSchema,
+    contextName: 'MechanicNoteInterpretation',
+  });
 
-    const text = res.text?.trim() || '';
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return defaultFallback;
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    const validation = MechanicNoteInterpretationSchema.safeParse(parsed);
-    if (validation.success) {
-      return validation.data;
-    }
-    return defaultFallback;
-  } catch {
-    return defaultFallback;
+  if (res.success && res.data) {
+    return res.data;
   }
+
+  return defaultFallback;
 }
 
 export async function generateValidatedGroundedAnswer(
@@ -83,12 +71,9 @@ export async function generateValidatedGroundedAnswer(
   contextEvidence: string,
   availableCitations: SourceCitation[]
 ): Promise<{ answer: string; status: 'grounded' | 'insufficient_data'; validCitations: SourceCitation[] }> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!geminiProvider.isConfigured()) {
     throw new Error('GEMINI_API_KEY is not configured');
   }
-
-  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `You are a strict, grounded AI assistant for Meridian Freight.
 Answer the user's question using ONLY the provided evidence below.
@@ -107,38 +92,14 @@ ${availableCitations.map((c) => c.sourceId).join(', ')}
 USER QUESTION:
 ${question}`;
 
-  let responseText = '';
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const res = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-      responseText = res.text?.trim() || '';
-      if (responseText) break;
-    } catch (err: unknown) {
-      if (attempt === 2) throw err;
-    }
-  }
+  const res = await geminiProvider.generateStructuredJson<GroundedAnswerPayload>({
+    prompt,
+    schema: GroundedAnswerSchema,
+    contextName: 'ValidatedGroundedAnswer',
+  });
 
-  if (!responseText) {
-    return {
-      answer: 'Insufficient data to determine this.',
-      status: 'insufficient_data',
-      validCitations: [],
-    };
-  }
-
-  let parsedJson: unknown = null;
-  try {
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      parsedJson = JSON.parse(jsonMatch[0]);
-    } else {
-      parsedJson = JSON.parse(responseText);
-    }
-  } catch {
-    if (responseText.toLowerCase().includes('insufficient data')) {
+  if (!res.success || !res.data) {
+    if (res.rawText && res.rawText.toLowerCase().includes('insufficient data')) {
       return {
         answer: 'Insufficient data to determine this.',
         status: 'insufficient_data',
@@ -146,22 +107,13 @@ ${question}`;
       };
     }
     return {
-      answer: responseText,
-      status: 'grounded',
+      answer: res.rawText || 'Insufficient data to determine this.',
+      status: res.rawText ? 'grounded' : 'insufficient_data',
       validCitations: availableCitations,
     };
   }
 
-  const validation = GroundedAnswerSchema.safeParse(parsedJson);
-  if (!validation.success) {
-    return {
-      answer: 'Insufficient data to determine this.',
-      status: 'insufficient_data',
-      validCitations: [],
-    };
-  }
-
-  const data = validation.data;
+  const data = res.data;
   if (data.status === 'insufficient_data') {
     return {
       answer: 'Insufficient data to determine this.',
@@ -188,9 +140,8 @@ export function __setGenerateAnswerHandler(
 }
 
 /**
- * A thin wrapper around the Gemini API using @google/generative-ai.
- * Answers questions STRICTLY using only the provided facts.
- * Explicitly returns "I don't have enough information" if facts don't cover the question.
+ * Answers questions STRICTLY using only the provided facts via GeminiProvider.
+ * Explicitly returns "I don't have enough information." if facts don't cover the question.
  * Prohibits free reasoning, tool-calling, and agent behavior.
  */
 export async function generateAnswer(prompt: string, contextFacts: Fact[]): Promise<string> {
@@ -203,7 +154,6 @@ export async function generateAnswer(prompt: string, contextFacts: Fact[]): Prom
   }
 
   const formattedFacts = contextFacts
-
     .map((fact, index) => `[Fact ${index + 1}] (Source: ${fact.source_ref}): ${fact.text}`)
     .join('\n');
 
@@ -223,32 +173,30 @@ ${formattedFacts}
 USER QUESTION:
 ${prompt.trim()}`;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!geminiProvider.isConfigured()) {
     // Deterministic fallback when API key is not configured (e.g. offline unit testing)
     return `Based on records:\n${contextFacts.map((f) => f.text).join('\n')}`;
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    const text = response.text()?.trim() || '';
+  const result = await geminiProvider.generateText({
+    prompt: fullPrompt,
+    contextName: 'GroundedFactChat',
+    temperature: 0.1,
+  });
 
-    if (
-      !text ||
-      text.toLowerCase().includes("don't have enough information") ||
-      text.toLowerCase().includes('insufficient data')
-    ) {
-      return "I don't have enough information.";
-    }
-
-    return text;
-  } catch (err) {
-    console.warn('Gemini API call failed in generateAnswer:', err);
-    // When Gemini errors or fails, return grounded fallback from facts
+  if (!result.success || !result.text) {
+    // Return grounded fallback from facts if API call fails
     return `Based on records:\n${contextFacts.map((f) => f.text).join('\n')}`;
   }
-}
 
+  const text = result.text.trim();
+  if (
+    !text ||
+    text.toLowerCase().includes("don't have enough information") ||
+    text.toLowerCase().includes('insufficient data')
+  ) {
+    return "I don't have enough information.";
+  }
+
+  return text;
+}

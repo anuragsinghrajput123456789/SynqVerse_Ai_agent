@@ -1,22 +1,9 @@
-import { MongoClient, Db } from 'mongodb';
-
-let client: MongoClient | null = null;
-let db: Db | null = null;
+import { Db } from 'mongodb';
+import { getDatabase, closeDatabaseConnection } from '../infrastructure/db';
 
 export async function getMongoDb(): Promise<Db> {
-  if (db) return db;
-
-  const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/meridian_resolve';
-  const isTest = process.env.NODE_ENV === 'test';
-
   try {
-    client = new MongoClient(uri, {
-      serverSelectionTimeoutMS: isTest ? 1000 : 5000,
-    });
-    await client.connect();
-    db = client.db();
-    console.log(`Connected to MongoDB at ${uri}`);
-    return db;
+    return await getDatabase();
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     if (process.env.NODE_ENV === 'production') {
@@ -27,10 +14,7 @@ export async function getMongoDb(): Promise<Db> {
   }
 }
 
-export async function closeMongoDb() {
-  if (client) {
-    await client.close();
-    client = null;
-    db = null;
-  }
+export async function closeMongoDb(): Promise<void> {
+  await closeDatabaseConnection();
 }
+

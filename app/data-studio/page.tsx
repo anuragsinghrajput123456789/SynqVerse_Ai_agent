@@ -16,7 +16,8 @@ import {
   TrendingUp,
   RefreshCw,
 } from 'lucide-react';
-import { DocumentAnalysisResult, ExtractedLogisticsRecord } from '../api/data/analyze/route';
+import { DocumentAnalysisResult, ExtractedLogisticsRecord } from '@/lib/types/data-studio';
+
 
 interface SamplePayload {
   fileName: string;

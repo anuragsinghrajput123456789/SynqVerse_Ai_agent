@@ -153,6 +153,28 @@ export function parseQuery(
   let intent: QueryIntent = 'general_query';
 
   if (
+    lowerQ.includes('authoritative') ||
+    lowerQ.includes('precedence') ||
+    lowerQ.includes('hierarchy') ||
+    (lowerQ.includes('why') && lowerQ.includes('source'))
+  ) {
+    intent = 'source_precedence';
+  } else if (
+    lowerQ.includes('missing') ||
+    lowerQ.includes('incomplete') ||
+    lowerQ.includes('unrecorded') ||
+    lowerQ.includes('what information is missing')
+  ) {
+    intent = 'missing_info';
+  } else if (
+    lowerQ.includes('operational context') ||
+    lowerQ.includes('fleet overview') ||
+    lowerQ.includes('fleet summary') ||
+    lowerQ.includes('all hubs') ||
+    lowerQ.includes('system status')
+  ) {
+    intent = 'operational_context';
+  } else if (
     lowerQ.includes('reject') ||
     lowerQ.includes('ineligible') ||
     lowerQ.includes('kyun kiya') ||

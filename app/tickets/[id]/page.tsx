@@ -7,11 +7,10 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   CheckCircle2,
-  XCircle,
   Truck,
-  Shield,
   Sparkles,
   RefreshCw,
+  FileCheck2,
 } from 'lucide-react';
 import {
   QueueTicket,
@@ -66,6 +65,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
 
   const [data, setData] = useState<TicketDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -77,13 +77,17 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const fetchTicketDetail = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/tickets/${ticketId}`);
+      setError(null);
+      const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}`);
       if (res.ok) {
         const json = await res.json();
         setData(json);
+      } else {
+        throw new Error(`Incident ${ticketId} not found or unavailable (HTTP ${res.status})`);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load ticket detail:', err);
+      setError(err instanceof Error ? err.message : 'Unable to load incident details');
     } finally {
       setLoading(false);
     }
@@ -92,6 +96,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   useEffect(() => {
     fetchTicketDetail();
   }, [fetchTicketDetail]);
+
 
   const handleApprove = async () => {
     if (!data?.approval) return;
@@ -180,12 +185,18 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             <h1 className="text-2xl font-bold tracking-tight text-white font-mono">
               {ticketId}
             </h1>
-            <span className="text-xs text-slate-400">Breakdown · 2h ago</span>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-              Critical
+            <span className="text-xs text-slate-400">
+              {data?.ticket?.createdAt ? `Reported: ${new Date(data.ticket.createdAt).toLocaleDateString()}` : 'Breakdown Incident'}
+            </span>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              data?.ticket?.severity === 'CRITICAL' || data?.decision?.severity === 'CRITICAL'
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+            }`}>
+              {data?.ticket?.severity || data?.decision?.severity || 'MEDIUM'}
             </span>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-              In Progress
+              {data?.ticket?.status || 'IN_PROGRESS'}
             </span>
           </div>
         </div>
@@ -194,13 +205,33 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
           <button
             onClick={fetchTicketDetail}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:text-white"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:text-white cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={fetchTicketDetail}
+            className="px-3 py-1 bg-rose-900/60 hover:bg-rose-800 text-white rounded-lg font-semibold cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {loading && !data && (
+        <div className="p-12 rounded-3xl glass-panel border border-slate-800 text-center text-xs text-slate-400 flex items-center justify-center gap-3">
+          <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
+          <span>Loading incident intelligence dossier...</span>
+        </div>
+      )}
+
 
       {/* 8-Stage Timeline Stepper matching screenshot */}
       <div className="rounded-3xl glass-panel border border-slate-800 p-6 overflow-x-auto">
@@ -272,48 +303,52 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400 font-medium">Vehicle</span>
               <span className="font-bold text-white font-mono">
-                {data?.vehicle?.vehicleId || data?.ticket?.vehicle || 'TRK-104'}
-                <span className="text-slate-400 font-normal ml-2">
-                  ({data?.vehicle?.registrationNumber || 'UP-60-BK-0144'})
-                </span>
+                {data?.vehicle?.vehicleId || data?.ticket?.vehicle || 'N/A'}
+                {data?.vehicle?.registrationNumber && data.vehicle.registrationNumber !== (data?.vehicle?.vehicleId || data?.ticket?.vehicle) && (
+                  <span className="text-slate-400 font-normal ml-2">
+                    ({data.vehicle.registrationNumber})
+                  </span>
+                )}
               </span>
             </div>
 
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400 font-medium">Driver</span>
               <span className="text-white font-medium">
-                {data?.driver?.name || 'Ramesh Kumar'}
-                <span className="text-[10px] text-slate-500 font-mono ml-2">
-                  (DL: MASKED-***)
-                </span>
+                {data?.driver?.name || data?.ticket?.driverId || 'Assigned Driver'}
+                {data?.driver?.dlNumber && (
+                  <span className="text-[10px] text-slate-500 font-mono ml-2">
+                    (DL: {data.driver.dlNumber.slice(0, 4)}***)
+                  </span>
+                )}
               </span>
             </div>
 
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400 font-medium">Client</span>
               <span className="text-cyan-300 font-semibold">
-                {data?.client?.name || data?.ticket?.client || 'Shakti Cement'}
+                {data?.client?.name || data?.ticket?.client || 'Commercial Freight Consignor'}
               </span>
             </div>
 
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400 font-medium">Route</span>
               <span className="text-slate-200 font-mono">
-                {data?.ticket?.originHub || 'Mumbai Central'} → {data?.ticket?.destination || 'Delhi (NH-48)'}
+                {data?.ticket?.originHub || 'Origin Hub'} → {data?.ticket?.destination || 'Destination'}
               </span>
             </div>
 
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400 font-medium">Reported Date</span>
               <span className="text-slate-300 font-mono">
-                08 Sep 2025, 08:21 AM
+                {data?.ticket?.createdAt ? new Date(data.ticket.createdAt).toLocaleString() : 'N/A'}
               </span>
             </div>
 
             <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800/80">
               <p className="text-slate-400 font-medium text-[11px]">Reported Problem:</p>
               <p className="text-slate-200 mt-1 font-mono">
-                {data?.ticket?.issue || 'Brake Disc Overheating & Caliper Lock on NH-48'}
+                {data?.ticket?.issue || 'Mechanical breakdown reported in corridor'}
               </p>
             </div>
           </div>
@@ -323,39 +358,21 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
         <div className="rounded-3xl glass-panel border border-slate-800 p-6 flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Shield className="w-4 h-4 text-cyan-400" />
-              <span>Decision</span>
+              <FileCheck2 className="w-4 h-4 text-indigo-400" />
+              <span>Decision Evaluation Checklist</span>
             </h2>
-
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
-              Rejected
+            <span className="text-[11px] font-mono text-emerald-400">
+              {data?.decision ? 'Rules Evaluated' : 'Triage Queued'}
             </span>
           </div>
 
-          {/* Checklist Items matching screenshot */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/60">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <div className="text-xs">
                 <p className="text-slate-200 font-medium">Route checked</p>
-                <p className="text-[11px] text-slate-400">NH-48 Golden Quadrilateral corridor verified</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/60">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <div className="text-xs">
-                <p className="text-slate-200 font-medium">Availability checked</p>
-                <p className="text-[11px] text-slate-400">Depot candidate pool queried within 150 km</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-rose-950/30 border border-rose-800/50">
-              <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
-              <div className="text-xs">
-                <p className="text-rose-300 font-medium">Maintenance restriction</p>
-                <p className="text-[11px] text-rose-400">
-                  Vehicle failed applicable maintenance eligibility rule
+                <p className="text-[11px] text-slate-400">
+                  {data?.ticket?.originHub || 'Origin'} to {data?.ticket?.destination || 'Destination'} corridor verified
                 </p>
               </div>
             </div>
@@ -363,8 +380,34 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/60">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <div className="text-xs">
-                <p className="text-slate-200 font-medium">Client requirement checked</p>
-                <p className="text-[11px] text-slate-400">Shakti Cement BS6 compliance requirement met</p>
+                <p className="text-slate-200 font-medium">Availability checked</p>
+                <p className="text-[11px] text-slate-400">
+                  {data?.decision?.candidateEvaluations?.length
+                    ? `${data.decision.candidateEvaluations.length} replacement candidate trucks evaluated`
+                    : 'Candidate fleet pool queried against dispatch constraints'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/60">
+              <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0" />
+              <div className="text-xs">
+                <p className="text-slate-200 font-medium">Action Decision</p>
+                <p className="text-[11px] text-indigo-300 font-mono">
+                  {data?.decision?.action || 'EVALUATING'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/60">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="text-xs">
+                <p className="text-slate-200 font-medium">Rules Applied</p>
+                <p className="text-[11px] text-slate-400">
+                  {data?.decision?.rulesApplied?.length
+                    ? data.decision.rulesApplied.map((r) => r.ruleId).join(', ')
+                    : '13 Deterministic Dispatcher Rules active'}
+                </p>
               </div>
             </div>
           </div>
@@ -373,7 +416,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
           <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-700/80 text-xs">
             <span className="text-slate-400 font-semibold block text-[11px]">Reason:</span>
             <p className="text-slate-200 mt-1 font-mono leading-relaxed">
-              Vehicle failed applicable maintenance eligibility rule. Required brake disc replacement overdue by 420 km.
+              {data?.decision?.actionReason || data?.decision?.explanation || 'Operational decision evaluated according to authoritative dispatcher rules.'}
             </p>
           </div>
         </div>
@@ -389,26 +432,34 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               <span>Assigned Replacement Truck</span>
             </h3>
             <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              TRK-121
+              {data?.decision?.selectedVehicle?.registrationNumber || data?.workOrder?.replacementVehicle || (data?.decision?.action === 'ROADSIDE_REPAIR' ? 'ROADSIDE FIX' : 'PRIMARY')}
             </span>
           </div>
 
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400">Plate Number</span>
-              <span className="text-white font-mono">MH-04-AX-9912</span>
+              <span className="text-white font-mono">
+                {data?.decision?.selectedVehicle?.registrationNumber || data?.workOrder?.replacementVehicle || data?.ticket?.vehicle || 'None'}
+              </span>
             </div>
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400">Current Depot</span>
-              <span className="text-slate-200">Mumbai Central Hub (18 km away)</span>
+              <span className="text-slate-200">
+                {data?.decision?.selectedVehicle?.homeHub ? `${data.decision.selectedVehicle.homeHub} (${data.decision.selectedVehicle.distanceKm} km away)` : 'On-Site / Local Corridor'}
+              </span>
             </div>
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400">Model &amp; Engine</span>
-              <span className="text-slate-200">BharatBenz 2823C (BS6 Compliant)</span>
+              <span className="text-slate-200">
+                {data?.decision?.selectedVehicle?.model ? `${data.decision.selectedVehicle.model} (${data.decision.selectedVehicle.bsStage || 'BS6'})` : 'Commercial Freight Class'}
+              </span>
             </div>
             <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
               <span className="text-slate-400">Work Order</span>
-              <span className="text-cyan-300 font-mono">WO-1042-DISPATCH</span>
+              <span className="text-cyan-300 font-mono">
+                {data?.workOrder?.workOrderId || (data?.ticket?.ticketId ? `WO-${data.ticket.ticketId}` : 'PENDING')}
+              </span>
             </div>
           </div>
         </div>
@@ -420,13 +471,17 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               <Sparkles className="w-4 h-4 text-indigo-400" />
               <span>AI-Drafted Client Notification</span>
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              Review Required
+            <span className={`px-2 py-0.5 rounded-full text-xs font-mono border ${
+              data?.approval?.status === 'APPROVED'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+            }`}>
+              {data?.approval?.status === 'APPROVED' ? 'Approved' : 'Review Required'}
             </span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 font-mono leading-relaxed">
-            &ldquo;Dear Shakti Cement Dispatch Team, breakdown ticket BRK-1042 for primary truck TRK-104 has been triaged. In accordance with Fleet Safety Policy §4.2, eligible replacement truck TRK-121 has been deployed to ensure SLA compliance.&rdquo;
+          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 font-mono leading-relaxed whitespace-pre-line">
+            {data?.approval?.message?.message || (data?.approval?.message?.subject ? `${data.approval.message.subject}: Dispatch review in progress.` : 'Client notification draft in preparation by operations desk.')}
           </div>
 
           {actionMessage && (

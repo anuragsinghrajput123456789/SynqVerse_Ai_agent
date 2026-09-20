@@ -54,11 +54,14 @@ export interface CopilotQueryRequest {
 export const CopilotQueryResponseSchema = z.object({
   answer: z.string(),
   status: z.enum(['success', 'insufficient_data', 'error']),
+  citations: z.array(z.string()).default([]),
+  confidence: z.enum(['high', 'medium', 'low']).or(z.number()),
+  insufficientData: z.boolean().default(false),
+  sourcesUsed: z.array(SourceCitationDetailSchema).default([]),
   sources: z.array(SourceCitationDetailSchema),
   entities: z.array(z.string()),
   rules: z.array(z.string()),
   conflicts: z.array(z.custom<Conflict>()),
-  confidence: z.enum(['high', 'medium', 'low']).or(z.number()),
   error: z.string().optional(),
 });
 
@@ -78,6 +81,9 @@ export type QueryIntent =
   | 'breakdown_eligibility'
   | 'work_order'
   | 'audit_trail'
+  | 'operational_context'
+  | 'source_precedence'
+  | 'missing_info'
   | 'general_query';
 
 export interface ExtractedEntities {

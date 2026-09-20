@@ -185,8 +185,9 @@ export interface DispatcherRule {
   priority: number;
   source: string;
   sourceReference: string;
-  category?: string;
+  category?: 'route' | 'seasonal' | 'vehicle' | 'maintenance' | 'client' | 'driver' | 'severity' | 'sla' | string;
 }
+
 
 export interface CandidateEvaluation {
   vehicleId: string;
@@ -209,6 +210,12 @@ export interface DecisionRecord {
   decisionId: string;
   ticketId: string;
   createdAt: string;
+  timestamp: string;
+  decision: 'VEHICLE_REPLACEMENT' | 'ROADSIDE_REPAIR' | 'WORKSHOP_TOW' | 'INSUFFICIENT_DATA' | 'MANUAL_OVERRIDE_REQUIRED' | 'DUPLICATE_SKIPPED';
+  reason: string;
+  rulesApplied: DispatcherRule[];
+  inputsUsed: Record<string, unknown>;
+  rejectedReasons: string[];
   decisionStatus: 'DECIDED' | 'INSUFFICIENT_DATA' | 'MANUAL_OVERRIDE_REQUIRED';
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   action: 'ROADSIDE_REPAIR' | 'VEHICLE_REPLACEMENT' | 'WORKSHOP_TOW';
@@ -216,10 +223,10 @@ export interface DecisionRecord {
   selectedVehicle: CandidateEvaluation | null;
   candidateEvaluations: CandidateEvaluation[];
   rejectedCandidates: CandidateEvaluation[];
-  rulesApplied: DispatcherRule[];
   evidence: Record<string, unknown>;
   sources: SourceCitation[];
   explanation: string;
   slaDeadlineHours?: number;
   transitBufferPercentage?: number;
 }
+

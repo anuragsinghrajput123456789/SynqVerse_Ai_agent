@@ -8,10 +8,11 @@ import { QueueTicket } from '../types';
 import { DecisionEngine } from '../decision-engine';
 import { ReplacementVehicleSelectionService } from '../vehicle-selection';
 import { createWorkOrderIdempotent } from '../work-orders';
-import { draftClientMessage } from '../ai';
+import { draftClientMessage, buildDeterministicFallbackDraft } from '../ai';
 import { createApproval } from '../approvals';
 import { createAuditEvent, getTicketAuditTimeline } from '../audit';
 import { QueueRepository } from '../repositories';
+import { getGeminiModel } from '../infrastructure/env';
 import { ProcessTicketResult } from './types';
 
 export async function processTicket(ticket: QueueTicket): Promise<ProcessTicketResult> {
@@ -215,17 +216,53 @@ export async function processTicket(ticket: QueueTicket): Promise<ProcessTicketR
       })),
     });
 
-    const clientMessageDraft = aiDraftResult.draft || null;
+    const clientMessageDraft =
+      aiDraftResult.draft ||
+      buildDeterministicFallbackDraft({
+        sanitizedTicket: {
+          ticketId,
+          originHub: ticket.originHub,
+          destination: ticket.destination,
+          issue: ticket.issue,
+          severity: decision.severity,
+          client: ticket.client,
+          createdAt: ticket.createdAt,
+        },
+        resolvedVehicle: { registrationNumber: ticket.vehicle },
+        selectedReplacementVehicle: selectedVehicle
+          ? {
+              registrationNumber: selectedVehicle.registrationNumber,
+              model: selectedVehicle.model,
+              homeHub: selectedVehicle.homeHub,
+              distanceKm: selectedVehicle.distanceKm,
+              bsStage: selectedVehicle.bsStage,
+            }
+          : null,
+        client: ticket.client,
+        sla: {
+          slaDeadlineHours: decision.slaDeadlineHours,
+          specialInstructions: [decision.explanation],
+        },
+        approvedFacts,
+        sourceCitations: decision.sources.map((s) => ({
+          sourceId: s.sourceId,
+          sourceFile: s.sourceFile,
+          field: s.field,
+          resolvedValue: s.resolvedValue,
+        })),
+      });
+
     if (clientMessageDraft) {
       await createAuditEvent({
         ticketId,
         eventType: 'MESSAGE_DRAFTED',
         actor: 'assistant:gemini',
         reason: 'Client update notification message drafted with verified operational facts',
-        sourceReferences: ['gemini-2.5-flash'],
+        sourceReferences: [getGeminiModel()],
         safeMetadata: { subject: clientMessageDraft.subject },
       });
     }
+
 
     // Stage 9: Human Approval Workflow
     let approvalRecord = null;

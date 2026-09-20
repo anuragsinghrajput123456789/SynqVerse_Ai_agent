@@ -223,11 +223,6 @@ export class LocationRepository {
   }
 
   public async findByDriverId(driverId: string): Promise<DriverLocation | null> {
-    const mem = inMemoryLocations.get(driverId);
-    if (mem) {
-      return { ...mem, freshness: calculateFreshness(mem.lastUpdated) };
-    }
-
     const db = await getDb();
     if (db) {
       const col = db.collection<DriverLocation>('driver_locations');
@@ -238,25 +233,36 @@ export class LocationRepository {
         return enriched;
       }
     }
+
+    const mem = inMemoryLocations.get(driverId);
+    if (mem) {
+      return { ...mem, freshness: calculateFreshness(mem.lastUpdated) };
+    }
+
     return null;
   }
 
   public async findAll(): Promise<DriverLocation[]> {
-    let list = Array.from(inMemoryLocations.values());
     const db = await getDb();
-    if (db && list.length === 0) {
+    if (db) {
       const col = db.collection<DriverLocation>('driver_locations');
       const dbList = await col.find({}).toArray();
       if (dbList.length > 0) {
         dbList.forEach((d) => inMemoryLocations.set(d.driverId, d));
-        list = dbList;
+        return dbList.map((loc) => ({
+          ...loc,
+          freshness: calculateFreshness(loc.lastUpdated),
+        }));
       }
     }
+
+    const list = Array.from(inMemoryLocations.values());
     return list.map((loc) => ({
       ...loc,
       freshness: calculateFreshness(loc.lastUpdated),
     }));
   }
+
 
   public async getFleetStats(): Promise<FleetSummaryStats> {
     const all = await this.findAll();

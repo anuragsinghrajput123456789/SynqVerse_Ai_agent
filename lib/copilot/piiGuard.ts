@@ -32,12 +32,16 @@ export function sanitizeCitations(citations: SourceCitationDetail[]): SourceCita
 
 export function sanitizeCopilotResponse(res: CopilotQueryResponse): CopilotQueryResponse {
   const sanitizedAnswer = sanitizeText(res.answer);
-  const sanitizedSources = sanitizeCitations(res.sources);
+  const sanitizedSources = sanitizeCitations(res.sources || []);
+  const sanitizedSourcesUsed = sanitizeCitations(res.sourcesUsed || res.sources || []);
+  const sanitizedCitations = (res.citations || []).map(sanitizeText);
 
   return {
     ...res,
     answer: sanitizedAnswer,
     sources: sanitizedSources,
+    sourcesUsed: sanitizedSourcesUsed,
+    citations: sanitizedCitations,
   };
 }
 

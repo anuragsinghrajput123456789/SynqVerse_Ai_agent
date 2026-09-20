@@ -15,13 +15,16 @@ import {
 } from 'lucide-react';
 import Badge from '../components/ui/Badge';
 
+import { WorkOrder } from '@/lib/work-orders/types';
+import { apiClient } from '@/lib/infrastructure/api-client';
+
 interface WorkOrderItem {
   workOrderId: string;
   ticketId: string;
   originalVehicle: string;
   replacementVehicle: string;
   workshop: string;
-  status: 'CREATED' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  status: string;
   createdAt: string;
   estimatedArrivalMin: number;
   idempotencyVerified: boolean;
@@ -38,28 +41,22 @@ export default function WorkOrdersPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/work-orders');
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const mapped = data.map((item: any) => ({
-            workOrderId: item.workOrderId || item.id || `WO-${item.ticketId}`,
-            ticketId: item.ticketId || 'BRK-UNKNOWN',
-            originalVehicle: item.originalVehicle || 'TRK-UNKNOWN',
-            replacementVehicle: item.replacementVehicle || item.replacementVehicleId || 'None',
-            workshop: item.workshop || 'Regional Depot Hub',
-            status: item.status || 'IN_PROGRESS',
-            createdAt: item.createdAt || new Date().toISOString(),
-            estimatedArrivalMin: item.estimatedArrivalMin ?? 0,
-            idempotencyVerified: true,
-          }));
-          setOrders(mapped);
-        } else {
-          setOrders([]);
-        }
+      const res = await apiClient.get<WorkOrder[]>('/api/work-orders');
+      if (res.ok && res.data && Array.isArray(res.data)) {
+        const mapped: WorkOrderItem[] = res.data.map((item) => ({
+          workOrderId: item.workOrderId || `WO-${item.ticketId}`,
+          ticketId: item.ticketId || 'BRK-UNKNOWN',
+          originalVehicle: item.vehicleAssigned || 'TRK-UNKNOWN',
+          replacementVehicle: item.replacementVehicle || 'None',
+          workshop: (item.metadata?.workshop as string) || 'Regional Depot Hub',
+          status: item.status || 'IN_PROGRESS',
+          createdAt: item.createdAt || new Date().toISOString(),
+          estimatedArrivalMin: 0,
+          idempotencyVerified: true,
+        }));
+        setOrders(mapped);
       } else {
-        throw new Error(`Failed to load work orders (HTTP ${res.status})`);
+        throw new Error(res.error || 'Failed to load work orders');
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unable to load work orders.');
@@ -68,6 +65,7 @@ export default function WorkOrdersPage() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchLiveOrders();

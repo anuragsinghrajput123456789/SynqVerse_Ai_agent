@@ -71,6 +71,7 @@ export function evaluateReplacementCandidates(
   // 1. Distance (closest first)
   // 2. Model Year (newer first)
   // 3. Capacity (higher first)
+  // 4. Registration Number (alphanumeric tie-breaker)
   eligibleCandidates.sort((a, b) => {
     if (a.distanceKm !== b.distanceKm) {
       return a.distanceKm - b.distanceKm;
@@ -78,16 +79,32 @@ export function evaluateReplacementCandidates(
     if (b.year !== a.year) {
       return b.year - a.year;
     }
-    return b.capacityTonnes - a.capacityTonnes;
+    if (b.capacityTonnes !== a.capacityTonnes) {
+      return b.capacityTonnes - a.capacityTonnes;
+    }
+    return a.registrationNumber.localeCompare(b.registrationNumber);
   });
 
   const selectedVehicle = eligibleCandidates.length > 0 ? eligibleCandidates[0] : null;
 
   const matchedRules = selectedVehicle ? selectedVehicle.matchedRules : [];
-  const reasons = selectedVehicle
-    ? [`Selected best eligible replacement ${selectedVehicle.registrationNumber} from '${selectedVehicle.homeHub}' (${selectedVehicle.distanceKm} km).`]
-    : ['No eligible replacement vehicle satisfies all active dispatcher constraints.'];
+  const reasons: string[] = [];
+  if (selectedVehicle) {
+    reasons.push(
+      `Selected best eligible replacement ${selectedVehicle.registrationNumber} (${selectedVehicle.model}, ${selectedVehicle.year}, ${selectedVehicle.bsStage}) from '${selectedVehicle.homeHub}' (${selectedVehicle.distanceKm} km). Ranked #1 of ${eligibleCandidates.length} eligible candidate(s).`
+    );
+    if (eligibleCandidates.length > 1) {
+      const runnerUps = eligibleCandidates
+        .slice(1)
+        .map((c) => `${c.registrationNumber} (${c.homeHub}, ${c.distanceKm} km, year ${c.year})`)
+        .join(', ');
+      reasons.push(`Runner-up eligible replacement candidate(s) considered: ${runnerUps}.`);
+    }
+  } else {
+    reasons.push('No eligible replacement vehicle satisfies all active dispatcher constraints.');
+  }
   const sources: SourceCitation[] = selectedVehicle ? selectedVehicle.sources : [];
+
 
   return {
     decision: selectedVehicle,

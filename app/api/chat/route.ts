@@ -92,11 +92,19 @@ export async function POST(req: NextRequest) {
 
     const result = await chatAnswer(query, conversationHistory);
 
+    const harmonizedResult = {
+      ...result,
+      citations: result.source_refs || [],
+      insufficientData: result.status === 'insufficient_data',
+      sourcesUsed: result.sources || [],
+      confidence: result.status === 'grounded' ? 'high' : 'low',
+    };
+
     if (conversationHistory.length === 0) {
-      queryCache.set(cacheKey, { result, expiresAt: now + 5 * 60 * 1000 });
+      queryCache.set(cacheKey, { result: harmonizedResult, expiresAt: now + 5 * 60 * 1000 });
     }
 
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json(harmonizedResult, { status: 200 });
   } catch (err: unknown) {
     console.error('API /api/chat error:', err);
     return NextResponse.json(

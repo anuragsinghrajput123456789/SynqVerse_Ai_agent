@@ -27,18 +27,25 @@ export function evaluateSeverity(
     resolutionReason: 'Breakdown ticket failure description',
   });
 
-  // Guard: Check for missing context
-  if (!ticket.issue || !ticket.issue.trim() || ticket.isQuarantined) {
+  // Guard: Check for missing context (do not guess)
+  const missingFields: string[] = [];
+  if (!ticket.issue || !ticket.issue.trim()) missingFields.push('failure issue description');
+  if (!ticket.vehicle || !ticket.vehicle.trim()) missingFields.push('vehicle identifier');
+  if (!ticket.driverId || !ticket.driverId.trim()) missingFields.push('driver identifier');
+  if (ticket.isQuarantined || ticket.status === 'QUARANTINED') missingFields.push('ticket is quarantined');
+
+  if (missingFields.length > 0) {
     return {
       decision: 'INSUFFICIENT_DATA',
       isMajorMechanicalFailure: false,
       requiresImmediateReplacement: false,
       matchedRules: [],
-      reasons: ['Breakdown ticket is missing failure issue description or is quarantined'],
+      reasons: [`Breakdown ticket has missing required context: ${missingFields.join(', ')}`],
       sources,
       conflicts,
     };
   }
+
 
   const issueLower = ticket.issue.toLowerCase();
 

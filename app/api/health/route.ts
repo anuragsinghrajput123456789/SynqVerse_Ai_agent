@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/db/mongodb';
+import { getGeminiModel, getGeminiApiKey } from '@/lib/infrastructure/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,11 +8,11 @@ export async function GET() {
   const startTime = Date.now();
 
   // 1. Check AI Key availability
-  const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+  const hasGeminiKey = Boolean(getGeminiApiKey());
   const aiStatus = {
     status: hasGeminiKey ? 'connected' : 'fallback',
     label: hasGeminiKey ? 'Connected' : 'Fallback Active',
-    provider: 'Gemini 2.5 Flash',
+    provider: `Google ${getGeminiModel()}`,
   };
 
   // 2. Check Database connectivity

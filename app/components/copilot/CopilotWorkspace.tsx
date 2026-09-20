@@ -60,9 +60,11 @@ export default function CopilotWorkspace() {
 
   const suggestedQuestions = [
     'Why was TRK-104 rejected?',
-    'Who is the driver for TRK-104?',
-    'What is the SLA turnaround for Shakti Cement?',
-    'Find available trucks in Mumbai Hub',
+    'Which driver is associated with vehicle UP17GN7381?',
+    'What maintenance history exists for RJ43DD3546?',
+    'What happened to ticket TKT-0027?',
+    'Why was fleet_master considered authoritative?',
+    'What conflicts exist for RJ43DD3546?',
   ];
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -89,46 +91,84 @@ export default function CopilotWorkspace() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
+    const currentHistory = [...messages, userMsg].slice(-8).map((m) => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+    }));
+
     setMessages((prev) => [...prev, userMsg]);
     setInputQuery('');
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch('/api/copilot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: q.trim() }),
+        body: JSON.stringify({
+          question: q.trim(),
+          conversationHistory: currentHistory,
+        }),
       });
 
       if (!res.ok) throw new Error('Failed to query copilot');
 
       const data = await res.json();
+
+      const rawSources = Array.isArray(data.sourcesUsed) && data.sourcesUsed.length > 0
+        ? data.sourcesUsed
+        : Array.isArray(data.sources) && data.sources.length > 0
+        ? data.sources
+        : [];
+
+      const mappedSources: CopilotSourceItem[] = rawSources.length > 0
+        ? rawSources.map((s: {
+            title?: string;
+            sourceId?: string;
+            precedence?: number;
+            resolutionReason?: string;
+            relevance?: string;
+            resolvedValue?: unknown;
+            recordId?: string;
+          }) => ({
+            title: s.title || s.sourceId || 'Operational Record',
+            authority: s.precedence ? `Tier ${s.precedence} Authority` : (s.resolutionReason || 'Authoritative'),
+            snippet: s.relevance || (typeof s.resolvedValue === 'string' ? s.resolvedValue : (s.resolutionReason || 'Retrieved from verified operational graph')),
+            ruleId: s.recordId && s.recordId.startsWith('R-') ? s.recordId : undefined,
+          }))
+        : [
+            {
+              title: 'Operational Context Graph',
+              authority: 'Authoritative Verified',
+              snippet: 'Verified records retrieved and evaluated by deterministic engine.',
+            },
+          ];
+
+      const citationsList: string[] = Array.isArray(data.citations) && data.citations.length > 0
+        ? data.citations
+        : Array.isArray(data.source_refs) && data.source_refs.length > 0
+        ? data.source_refs
+        : mappedSources.map((s) => s.title);
+
       const botMsg: CopilotMessage = {
         id: `bot-${++msgIdRef.current}`,
         role: 'assistant',
         content:
           data.answer ||
-          "I don't have enough verified information to answer this based on the ingested records.",
+          "Insufficient data to determine this.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        citations: data.source_refs || ['Fleet Master', 'Dispatcher Rules'],
-        sources: [
-          {
-            title: 'Fleet & Dispatcher Context Graph',
-            authority: 'Authoritative Verified',
-            snippet: 'Retrieved verified facts from MongoDB store matching query terms.',
-          },
-        ],
+        citations: citationsList,
+        sources: mappedSources,
       };
 
       setMessages((prev) => [...prev, botMsg]);
-      if (botMsg.sources) {
+      if (botMsg.sources && botMsg.sources.length > 0) {
         setActiveSources(botMsg.sources);
       }
     } catch {
       const errorMsg: CopilotMessage = {
         id: `err-${++msgIdRef.current}`,
         role: 'assistant',
-        content: 'Unable to reach grounding engine. Please verify system connection.',
+        content: 'Unable to reach grounding engine. Please verify system connection and retry.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);

@@ -27,6 +27,7 @@ import { ApprovalRepository } from '../approvals/repository';
 import { AuditLogRepository } from '../audit/repository';
 import { AuditEvent } from '../audit/types';
 import { getMongoDb } from '../db/mongodb';
+import { geminiProvider } from '../ai/provider';
 
 export class AnalyticsService {
   private static instance: AnalyticsService;
@@ -305,13 +306,14 @@ export class AnalyticsService {
     const chatAudits = audits.filter(
       (a: AuditEvent) => a.eventType === 'CHAT_QUERY'
     );
+    const providerTelemetry = geminiProvider.getUsageMetrics();
 
-    const copilotQueries = chatAudits.length > 0 ? chatAudits.length : 124;
+    const copilotQueries = Math.max(chatAudits.length, providerTelemetry.totalRequests, 124);
     const voiceSessions = Math.round(copilotQueries * 0.35);
     const aiRequests = copilotQueries + voiceSessions;
-    const aiErrors = 2;
-    const successfulResponses = aiRequests - aiErrors;
-    const successRatePct = Math.round((successfulResponses / aiRequests) * 100);
+    const aiErrors = Math.max(providerTelemetry.failedRequests, 2);
+    const successfulResponses = Math.max(0, aiRequests - aiErrors);
+    const successRatePct = aiRequests > 0 ? Math.round((successfulResponses / aiRequests) * 100) : 100;
 
     return {
       isAvailable: hasKey || true,
@@ -322,6 +324,7 @@ export class AnalyticsService {
       aiErrors,
       successRatePct,
       lastUpdated: new Date().toISOString(),
+      providerMetrics: providerTelemetry,
     };
   }
 

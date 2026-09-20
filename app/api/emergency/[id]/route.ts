@@ -20,18 +20,24 @@ export async function GET(
       );
     }
 
-    // Retrieve related audit events
+    // Retrieve related audit events using indexed queries
     const auditRepo = new AuditLogRepository();
-    const allAudit = await auditRepo.findAll();
-    const relatedAudit = allAudit.filter(
-      (a) => a.ticketId === emergency.id || a.ticketId === emergency.relatedIncidentId
-    );
+    const primaryAudit = await auditRepo.findByTicketId(emergency.id);
+    let relatedAudit = primaryAudit;
+    if (emergency.relatedIncidentId && emergency.relatedIncidentId !== emergency.id) {
+      const secondaryAudit = await auditRepo.findByTicketId(emergency.relatedIncidentId);
+      relatedAudit = [...primaryAudit, ...secondaryAudit].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+    }
 
     return NextResponse.json({
       success: true,
       emergency,
       auditEvents: relatedAudit,
+      auditTrail: relatedAudit,
     });
+
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ success: false, error: message }, { status: 500 });

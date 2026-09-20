@@ -29,6 +29,9 @@ export function validateCopilotResponse(
     return {
       answer: 'Insufficient data to determine this.',
       status: 'insufficient_data',
+      citations: [],
+      insufficientData: true,
+      sourcesUsed: [],
       sources: [],
       entities: [
         ...entities.vehicleIds,
@@ -81,9 +84,16 @@ export function validateCopilotResponse(
     ])
   );
 
+  const citationTitles = Array.from(
+    new Set(verifiedSources.map((s) => s.title || s.sourceId))
+  );
+
   const initialResponse: CopilotQueryResponse = {
     answer: sanitizeText(rawOutput.answer),
     status: 'success',
+    citations: citationTitles,
+    insufficientData: false,
+    sourcesUsed: verifiedSources,
     sources: verifiedSources,
     entities: entityList,
     rules: Array.from(rulesSet),
@@ -105,6 +115,9 @@ export function validateCopilotResponse(
     return {
       answer: sanitizedResponse.answer,
       status: 'error',
+      citations: [],
+      insufficientData: false,
+      sourcesUsed: [],
       sources: [],
       entities: entityList,
       rules: [],

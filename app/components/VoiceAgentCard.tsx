@@ -15,6 +15,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+import { ISpeechRecognitionInstance, SpeechRecognitionEvent } from '@/lib/voice/speechToText';
+
 interface VoiceAgentCardProps {
   isFullScreen?: boolean;
 }
@@ -32,8 +34,8 @@ export default function VoiceAgentCard({ isFullScreen = false }: VoiceAgentCardP
   const [loading, setLoading] = useState(false);
 
   // Recognition ref
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<ISpeechRecognitionInstance | null>(null);
+
 
   const speakReply = useCallback((text: string) => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -87,16 +89,18 @@ export default function VoiceAgentCard({ isFullScreen = false }: VoiceAgentCardP
   useEffect(() => {
     // Check if Web Speech API is supported
     if (typeof window !== 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
+      const windowWithSpeech = window as unknown as {
+        SpeechRecognition?: new () => ISpeechRecognitionInstance;
+        webkitSpeechRecognition?: new () => ISpeechRecognitionInstance;
+      };
+      const SpeechRecognitionClass = windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
+      if (SpeechRecognitionClass) {
+        const recognition = new SpeechRecognitionClass();
         recognition.continuous = false;
         recognition.interimResults = true;
         recognition.lang = language;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        recognition.onresult = (event: any) => {
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
           const current = event.resultIndex;
           const text = event.results[current][0].transcript;
           setTranscript(text);

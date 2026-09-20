@@ -94,7 +94,17 @@ export interface AiUsageMetrics {
   aiErrors: number;
   successRatePct: number;
   lastUpdated: string;
+  providerMetrics?: {
+    totalRequests: number;
+    successfulRequests: number;
+    failedRequests: number;
+    throttledRequests: number;
+    estimatedPromptTokens: number;
+    estimatedCompletionTokens: number;
+    averageLatencyMs: number;
+  };
 }
+
 
 export interface SystemHealthMetrics {
   status: 'healthy' | 'degraded' | 'error';

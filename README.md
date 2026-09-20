@@ -9,7 +9,7 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.6-47A248?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
 [![Google Gemini](https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-8E75B2?style=for-the-badge&logo=google)](https://ai.google.dev/)
 [![TailwindCSS v4](https://img.shields.io/badge/TailwindCSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
-[![Tests Passing](https://img.shields.io/badge/Tests-13%20Suites%20Passed%20(100%25)-brightgreen?style=for-the-badge&logo=jest)](https://github.com/anuragsinghrajput123456789/SynqVerse_Ai_agent)
+[![Tests Passing](https://img.shields.io/badge/Tests-14%20Suites%20Passed%20(100%25)-brightgreen?style=for-the-badge&logo=jest)](https://github.com/anuragsinghrajput123456789/SynqVerse_Ai_agent)
 
 <br/>
 
@@ -21,7 +21,7 @@
 
 *Grafity is a production-hardened, portfolio-ready autonomous AI logistics operations platform engineered for high-velocity fleet orchestration, real-time highway emergency response, deterministic conflict resolution, and zero-hallucination multimodal dispatch.*
 
-[Documentation Hub](docs/README.md) • [Features](#-core-capabilities) • [Architecture](#-system-architecture) • [Live Telemetry & SOS](#-driver-safety--real-time-location) • [Grounded Copilot](#-grounded-copilot--voice-agent) • [Analytics](#-7-section-executive-admin-analytics) • [Quick Start](#-quick-start) • [API Reference](#-api-reference)
+[Documentation Hub](docs/README.md) • [Features](#-core-capabilities) • [Architecture](#-system-architecture) • [Infrastructure](#-enterprise-infrastructure-layer) • [Resilient AI](#-resilient-ai--grounded-copilot) • [Live Telemetry & SOS](#-driver-safety--real-time-location) • [Analytics](#-7-section-executive-admin-analytics) • [Quick Start](#-quick-start) • [Verification](#-comprehensive-verification--test-suite)
 
 ---
 
@@ -30,16 +30,37 @@
 ## 🌟 Core Capabilities
 
 ### 1. Deterministic Incident & Dispatch Engine (13 Rules)
-- **13 Authoritative Operational Rules (R-001 through R-013)** ([RULES.md](RULES.md)) enforced deterministically without hallucination risk.
-- **Automated Replacement Vehicle Candidate Ranking**: Evaluates distance from breakdown, vehicle model, capacity, and current driver duty status.
+- **13 Authoritative Operational Rules (R-001 through R-013)** ([`RULES.md`](RULES.md)) enforced deterministically with zero hallucination risk.
+- **Automated Replacement Vehicle Candidate Ranking**: Evaluates distance from breakdown, vehicle model, capacity, emission standards (BS-VI), driving hours, and hazardous material permits.
 - **SLA Violation Prevention**: Prioritizes Tier-1 clients (e.g., Shakti Cement 45m SLA, Reliance 30m SLA) with automated escalation triggers.
 - **Two-Phase Human Approvals**: Enforces mandatory supervisor authorization for high-cost dispatches while automating safe routine workflows.
+- **Hardened Decision Boundary Tests**: Dedicated test suite ([`tests/decision-engine-hardening.test.ts`](tests/decision-engine-hardening.test.ts)) guaranteeing edge-case resilience across all severity and penalty thresholds.
 
-### 2. Zero-Hallucination Grounded AI (Gemini 2.5 Flash)
-- Grounded strictly in validated context rosters (`fleet_master.csv`, `drivers_roster.xlsx`, `contracts_master.csv`).
-- Returns explicit **Source Citations** with every answer.
-- **Out-of-domain query gatekeeper**: Automatically declines unrelated questions without triggering Gemini tokens.
-- **5-minute sliding query deduplication cache**: Drastically reduces latency and cloud costs.
+### 2. Zero-Hallucination Grounded AI & Multi-Provider Engine
+- **Grounded Context Verification**: Grounded strictly in validated context rosters (`fleet_master.csv`, `drivers_roster.xlsx`, `contracts_master.csv`).
+- **Resilient AI Provider Layer** ([`lib/ai/provider.ts`](lib/ai/provider.ts)): Multi-model support (`gemini-2.5-flash`, `gemini-1.5-flash`, `gemini-2.0-flash`) with dynamic environment configuration.
+- **Offline Deterministic Fallback Drafting**: If external LLM calls encounter rate limits, network timeouts, or invalid keys, the platform automatically generates structured deterministic drafts. **Stage 9 (Human Approval Workflow) is NEVER skipped**, guaranteeing 100% autonomous pipeline reliability.
+- **Out-of-Domain Relevance Gatekeeper**: Evaluates query relevance before triggering LLM tokens; gracefully declines non-logistics queries.
+- **5-Minute Sliding Query Cache**: Significantly reduces latency and cloud token consumption.
+
+---
+
+## 🏛️ Enterprise Infrastructure Layer
+
+Grafity includes a modular, strictly typed enterprise infrastructure foundation under [`lib/infrastructure/`](lib/infrastructure/):
+
+| Module | File | Core Responsibilities |
+|---|---|---|
+| **Environment Configuration** | [`lib/infrastructure/env.ts`](lib/infrastructure/env.ts) | Zod-validated runtime environment variables (`MONGODB_URI`, `PORT`, `NODE_ENV`, `GEMINI_MODEL`, `API_AUTH_SECRET`, `APP_URL`). Replaced hardcoded model strings with dynamic `getGeminiModel()`. |
+| **Request Correlation** | [`lib/infrastructure/request-id.ts`](lib/infrastructure/request-id.ts) | Standardized `x-request-id` header extraction, nano-ID generation, and response header stamping for distributed tracing. |
+| **Structured Logging** | [`lib/infrastructure/logger.ts`](lib/infrastructure/logger.ts) | JSON-structured, level-filtered (`debug`, `info`, `warn`, `error`) logger with automated PII masking and request correlation context. |
+| **Typed Error Hierarchy** | [`lib/infrastructure/api-error.ts`](lib/infrastructure/api-error.ts) | `AppError` base class with specialized subclasses: `ValidationError` (400), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409), `RateLimitError` (429), `ExternalServiceError` (502). |
+| **Server Response Handlers** | [`lib/infrastructure/server-response.ts`](lib/infrastructure/server-response.ts) | Standardized JSON response envelope `{ success, data?, error?, meta: { requestId, timestamp } }`, plus `withApiHandler()` wrapper catching uncaught exceptions and formatting HTTP status codes. |
+| **Schema Validation** | [`lib/infrastructure/validation.ts`](lib/infrastructure/validation.ts) | Zod validation helpers: `validateBody()`, `validateSearchParams()`, and `validateRouteParams()` with formatted validation issues. |
+| **Role-Based Auth Guard** | [`lib/infrastructure/auth.ts`](lib/infrastructure/auth.ts) | Token/header-based RBAC for roles (`DISPATCHER`, `OPERATIONS_MANAGER`, `DRIVER`, `AUDITOR`, `SYSTEM`) with non-blocking development/test bypass. |
+| **Production MongoDB Singleton** | [`lib/infrastructure/db.ts`](lib/infrastructure/db.ts) | Global connection caching (`globalThis`), single-flight connection mutex preventing duplicate pools on hot-reload, health-check probe, and automated index registration across 13 collections. |
+| **Typed Frontend API Client** | [`lib/infrastructure/api-client.ts`](lib/infrastructure/api-client.ts) | Frontend HTTP client (`get`, `post`, `patch`, `put`, `delete`) with automatic request ID forwarding, standard timeout handling via `AbortController`, and normalized API error raising. |
+| **Central Infrastructure Barrel** | [`lib/infrastructure/index.ts`](lib/infrastructure/index.ts) | Single entry point exporting all infrastructure primitives for clean imports across server routes and client components. |
 
 ---
 
@@ -62,7 +83,7 @@
 
 ---
 
-## 🎙️ Grounded Copilot & Voice Agent
+## 🎙️ Resilient AI & Grounded Copilot
 
 <div align="center">
   <img src="./public/assets/grafity_copilot_voice.jpg" alt="Grafity Grounded Copilot and Multilingual Voice AI" width="100%" />
@@ -115,6 +136,7 @@ flowchart TB
         K --> L[Citation Verification Drawer]
         M[Web Speech API / TTS] --> N[Multilingual Voice Dispatcher\nHindi / Hinglish / English]
         N --> J
+        K -.->|Offline Fallback| G
     end
 
     subgraph SafetyTelemetry["4. Telemetry & Emergency SOS"]
@@ -124,11 +146,13 @@ flowchart TB
         Q --> I
     end
 
-    subgraph Observability["5. Observability & Analytics"]
+    subgraph Observability["5. Observability & Infrastructure"]
         I --> S[Analytics Service Engine\n7 Dimensions]
         I --> T[Forensic Audit Trail\nTamper-Evident Logs]
         S --> U[Executive Reports Dashboard]
         I --> V[Production Readiness Probe\n/api/ready]
+        W[Infrastructure Layer\nEnv / Logger / Auth / Errors] --> E
+        W --> J
     end
 ```
 
@@ -168,8 +192,14 @@ Create a `.env` file in the root directory:
 # Google Gemini API Key
 GEMINI_API_KEY=your_gemini_api_key_here
 
+# Optional: Override Gemini Model (default: gemini-2.5-flash)
+GEMINI_MODEL=gemini-2.5-flash
+
 # MongoDB Connection URI
 MONGODB_URI=mongodb://localhost:27017/meridian_resolve
+
+# Node Environment
+NODE_ENV=development
 ```
 
 ### 4. Ingest Base Context Data
@@ -188,7 +218,7 @@ Open [http://localhost:3000](http://localhost:3000) to access the Grafity consol
 
 ## 🧪 Comprehensive Verification & Test Suite
 
-Grafity includes 13 automated test suites covering all operational modules:
+Grafity includes **14 automated test suites** covering all operational, algorithmic, AI, and infrastructure modules:
 
 ```bash
 npm test
@@ -200,6 +230,7 @@ npm test
 | `part-a-integration.test.ts` | Context Foundation & Entity Normalization | ✅ PASSED |
 | `module-1-queue.test.ts` | Ticket Ingestion & Validation Pipeline | ✅ PASSED |
 | `module-2-decision.test.ts` | 13 Deterministic Operational Rules | ✅ PASSED |
+| `decision-engine-hardening.test.ts` | Decision Engine Hardening & Deterministic Edge Cases | ✅ PASSED |
 | `module-3-vehicle-selection.test.ts` | Replacement Vehicle Scoring & Ranking | ✅ PASSED |
 | `module-4-work-orders.test.ts` | Work Order Idempotency & Reruns | ✅ PASSED |
 | `module-5-ai-drafting.test.ts` | Zero-Hallucination Message Drafting | ✅ PASSED |
@@ -211,11 +242,37 @@ npm test
 | `chat-pipeline.test.ts` | Grounded AI Chat & Domain Gatekeeper | ✅ 35 PASSED |
 | `production-hardening.test.ts` | Rate Limiter, Schemas, SOS Deduplication, Analytics | ✅ 44 PASSED |
 
-### Production Build:
+### Dynamic Ticket Stress Testing:
 ```bash
-npm run build
+npm run test:surprise
 ```
-Compiles and optimizes all 43 static and dynamic routes cleanly with **exit code 0**.
+Executes dynamic, randomized incident simulation tickets to stress test pipeline edge cases (33/33 passed).
+
+### Production Build & Linting:
+```bash
+npm run lint   # 0 errors, 0 warnings
+npx tsc --noEmit # 0 type errors
+npm run build  # Compiles and generates all 38 static and dynamic routes cleanly
+```
+
+---
+
+## 📚 Technical Documentation Hub
+
+Explore the in-depth architectural, audit, and operational guides under [`docs/`](docs/):
+
+| Document | Description |
+|---|---|
+| 🚨 [`docs/PROBLEM_STATEMENT.md`](docs/PROBLEM_STATEMENT.md) | Indian highway logistics crisis, SLA penalties, data silos, and why generic AI fails. |
+| ⚡ [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | Executive summary, target user personas, core system architecture, and tech stack. |
+| 🏛️ [`docs/ARCHITECTURE_AND_WORKFLOW.md`](docs/ARCHITECTURE_AND_WORKFLOW.md) | Incident lifecycle sequence diagram, the 13 Operational Rules, and RAG mechanics. |
+| 🛡️ [`docs/ANTIGRAVITY-AUDIT.md`](docs/ANTIGRAVITY-AUDIT.md) | Comprehensive 360° architectural audit covering 20 vulnerability categories and production readiness gates. |
+| ⚙️ [`docs/STEP-1-STABILITY.md`](docs/STEP-1-STABILITY.md) | Documentation of `lib/infrastructure/`, reusable modular architecture, and stability verification. |
+| 🧠 [`docs/GEMINI-ARCHITECTURE.md`](docs/GEMINI-ARCHITECTURE.md) | Deep dive into zero-hallucination Gemini integration, multi-model support, and offline deterministic fallback drafting. |
+| 🔍 [`docs/RAG-OPERATIONS-COPILOT.md`](docs/RAG-OPERATIONS-COPILOT.md) | Technical guide to query classification, relevance scoring, multi-tier retrieval, and citation drawers. |
+| ✅ [`docs/FINAL_VERIFICATION.md`](docs/FINAL_VERIFICATION.md) | Verification logs and automated test results demonstrating 100% compliance. |
+| 📋 [`docs/PART_A_VERIFICATION.md`](docs/PART_A_VERIFICATION.md) | Verification of initial data ingestion, normalization, and candidate ranking algorithms. |
+| 📜 [`RULES.md`](RULES.md) | Complete codification of the 13 binding business and dispatch rules. |
 
 ---
 

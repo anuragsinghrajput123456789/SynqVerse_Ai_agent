@@ -70,19 +70,21 @@ export default function TicketsPage() {
   }, [fetchTickets]);
 
   const filteredTickets = tickets.filter((t) => {
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
       searchTerm === '' ||
-      t.ticketId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.issue.toLowerCase().includes(searchTerm.toLowerCase());
+      (t.ticketId || '').toLowerCase().includes(term) ||
+      (t.vehicle || '').toLowerCase().includes(term) ||
+      (t.client || '').toLowerCase().includes(term) ||
+      (t.issue || '').toLowerCase().includes(term);
 
     const matchesSeverity =
       severityFilter === 'ALL' ||
-      t.severity?.toUpperCase() === severityFilter.toUpperCase();
+      (t.severity || '').toUpperCase() === severityFilter.toUpperCase();
 
     return matchesSearch && matchesSeverity;
   });
+
 
   const getSeverityBadge = (severity: string) => {
     switch (severity?.toUpperCase()) {

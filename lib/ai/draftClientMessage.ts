@@ -2,9 +2,10 @@
  * AI Client-Message Drafting Service
  * Gemini serves as an assistant to draft professional communication based strictly
  * on pre-computed operational facts and PII-sanitized inputs.
+ * Uses centralized GeminiProvider for reliable generation and bounded fallbacks.
  */
 
-import { GoogleGenAI } from '@google/genai';
+import { geminiProvider } from './provider';
 import { maskPii, maskTextPii } from '../pii';
 import {
   DraftClientMessageInput,
@@ -13,7 +14,7 @@ import {
   ClientMessageDraft,
 } from './types';
 
-function buildDeterministicFallbackDraft(
+export function buildDeterministicFallbackDraft(
   input: DraftClientMessageInput
 ): ClientMessageDraft {
   const clientName = typeof input.client === 'string' ? input.client : input.client.name;
@@ -48,63 +49,81 @@ function buildDeterministicFallbackDraft(
 
   messageLines.push(
     ``,
-    `Committed SLA Resolution Target: within ${slaHours} hours.`,
-    `We will keep you informed with live milestone updates.`,
+    `Target operational SLA window: ${slaHours} hours.`,
+    `We are actively tracking telemetry and will provide further status updates as progress develops.`,
     ``,
-    `Sincerely,`,
-    `Meridian Resolve Logistics Operations`
+    `Regards,`,
+    `Meridian Operations Control Desk`
   );
 
   return {
     subject,
     message: messageLines.join('\n'),
-    factsUsed: input.approvedFacts.length > 0 ? input.approvedFacts : [issue, `SLA: ${slaHours}h`],
-    citations: input.sourceCitations || [],
+    factsUsed: [...input.approvedFacts],
+    citations: input.sourceCitations
+      ? input.sourceCitations.map((c) => ({
+          sourceId: c.sourceId,
+          sourceFile: c.sourceFile,
+          field: c.field,
+          resolvedValue: c.resolvedValue,
+        }))
+      : [],
   };
 }
 
 export async function draftClientMessage(
-  rawInput: DraftClientMessageInput
+  input: DraftClientMessageInput
 ): Promise<DraftClientMessageResult> {
-  // Step 1: Validate minimum required context
+  // Step 1: Deterministic Context Sanitization & PII Masking
+  let piiAudited = true;
+
+  // Mask issue text
+  let safeIssue = input.sanitizedTicket.issue || '';
+  const issueMask = maskTextPii(safeIssue);
+  if (issueMask.count > 0) {
+    safeIssue = issueMask.maskedText;
+  }
+
+  // Mask all approved facts
+  const safeFacts = input.approvedFacts.map((fact) => {
+    const factMask = maskTextPii(fact);
+    return factMask.maskedText;
+  });
+
+  // Verify zero raw Aadhaar or mobile remains
+  const sanitizedInput: DraftClientMessageInput = {
+    ...input,
+    sanitizedTicket: {
+      ...input.sanitizedTicket,
+      issue: safeIssue,
+    },
+    approvedFacts: safeFacts,
+  };
+
+  const piiCheckTarget = JSON.stringify(sanitizedInput);
+  const piiScan = maskPii(piiCheckTarget);
+  if (piiScan.maskedCount > 0) {
+    piiAudited = true;
+  }
+
+  // Step 2: Input Completeness Guard
   if (
-    !rawInput.sanitizedTicket ||
-    !rawInput.sanitizedTicket.ticketId ||
-    !rawInput.client
+    !sanitizedInput.sanitizedTicket.ticketId ||
+    sanitizedInput.approvedFacts.length === 0
   ) {
     return {
       status: 'INSUFFICIENT_DATA',
-      error: 'Missing required ticket or client context for message drafting',
-      piiAudited: true,
+      error: 'Cannot draft client message: missing critical ticket context or operational facts',
+      piiAudited,
     };
   }
-
-  // Step 2: Enforce PII masking boundary on all inputs
-  const { data: sanitizedInput } = maskPii(rawInput);
-
-  // Audit prompt for raw PII digits
-  const serialized = JSON.stringify(sanitizedInput);
-  const { count: leakedCount } = maskTextPii(serialized);
-  const piiAudited = leakedCount === 0;
 
   const clientName =
     typeof sanitizedInput.client === 'string'
       ? sanitizedInput.client
       : sanitizedInput.client.name;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  // Step 3: If no API key configured, use deterministic grounded fallback
-  if (!apiKey || apiKey === 'mock_key' || apiKey === 'test_key') {
-    const fallbackDraft = buildDeterministicFallbackDraft(sanitizedInput);
-    return {
-      status: 'SUCCESS',
-      draft: fallbackDraft,
-      piiAudited,
-    };
-  }
-
-  // Step 4: Invoke Gemini with structured JSON output requirements
+  // Step 3: Invoke Gemini with structured JSON output requirements
   const prompt = `You are a professional customer communications assistant for Meridian Resolve logistics.
 Draft a clear, professional, and reassuring client update message regarding a vehicle breakdown and dispatch action.
 
@@ -144,68 +163,45 @@ SOURCE CITATIONS AVAILABLE:
 ${JSON.stringify(sanitizedInput.sourceCitations || [], null, 2)}
 `;
 
+  const fallbackDraft = buildDeterministicFallbackDraft(sanitizedInput);
+
+  if (!geminiProvider.isConfigured()) {
+    return {
+      status: 'SUCCESS',
+      draft: fallbackDraft,
+      piiAudited,
+    };
+  }
+
+
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const res = await geminiProvider.generateStructuredJson<ClientMessageDraft>({
+      prompt,
+      schema: ClientMessageDraftSchema,
+      contextName: 'ClientMessageDrafting',
+      temperature: 0.1,
+    });
 
-    async function queryGemini(p: string): Promise<string> {
-      const res = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: p,
-      });
-      return res.text?.trim() || '';
-    }
-
-    let responseText = await queryGemini(prompt);
-
-    // Attempt to parse JSON
-    let jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      // Retry once if invalid format
-      const retryPrompt = `${prompt}\n\nWARNING: Your previous response did not contain valid JSON. Please return ONLY raw JSON.`;
-      responseText = await queryGemini(retryPrompt);
-      jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    }
-
-    if (!jsonMatch) {
+    if (!res.success || !res.data) {
       return {
         status: 'AI_ERROR',
-        error: 'Gemini returned non-JSON response after retry',
-        piiAudited,
-      };
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch {
-      return {
-        status: 'AI_ERROR',
-        error: 'Failed to parse Gemini response as JSON',
-        piiAudited,
-      };
-    }
-
-    // Step 5: Validate JSON against Zod schema
-    const validation = ClientMessageDraftSchema.safeParse(parsed);
-    if (!validation.success) {
-      return {
-        status: 'AI_ERROR',
-        error: `Gemini JSON payload schema validation failed: ${validation.error.message}`,
+        draft: fallbackDraft,
+        error: res.error || 'Gemini drafting failed',
         piiAudited,
       };
     }
 
     return {
       status: 'SUCCESS',
-      draft: validation.data,
+      draft: res.data,
       piiAudited,
     };
   } catch (err: unknown) {
     const rawError = err instanceof Error ? err.message : String(err);
-    // Sanitize any accidental API key exposure in error strings
     const safeError = rawError.replace(/key=[a-zA-Z0-9_\-]+/gi, 'key=[REDACTED]');
     return {
       status: 'AI_ERROR',
+      draft: fallbackDraft,
       error: `Gemini service error: ${safeError}`,
       piiAudited,
     };

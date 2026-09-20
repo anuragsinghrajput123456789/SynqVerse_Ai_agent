@@ -19,10 +19,12 @@ export default function AuditPage() {
   const [eventTypeFilter, setEventTypeFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchAuditLogs = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       let url = '/api/audit';
       const params = new URLSearchParams();
       if (ticketFilter.trim()) params.append('ticketId', ticketFilter.trim());
@@ -32,10 +34,14 @@ export default function AuditPage() {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setEvents(data);
+        setEvents(Array.isArray(data) ? data : []);
+      } else {
+        throw new Error(`Failed to load audit trail (HTTP ${res.status})`);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to fetch audit trail:', err);
+      setError(err instanceof Error ? err.message : 'Unable to load audit logs');
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -49,14 +55,15 @@ export default function AuditPage() {
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
     return (
-      e.eventId.toLowerCase().includes(q) ||
-      e.ticketId.toLowerCase().includes(q) ||
-      e.eventType.toLowerCase().includes(q) ||
-      e.actor.toLowerCase().includes(q) ||
-      e.reason.toLowerCase().includes(q) ||
-      (e.ruleId && e.ruleId.toLowerCase().includes(q))
+      (e.eventId || '').toLowerCase().includes(q) ||
+      (e.ticketId || '').toLowerCase().includes(q) ||
+      (e.eventType || '').toLowerCase().includes(q) ||
+      (e.actor || '').toLowerCase().includes(q) ||
+      (e.reason || '').toLowerCase().includes(q) ||
+      Boolean(e.ruleId && e.ruleId.toLowerCase().includes(q))
     );
   });
+
 
   const getEventTypeBadge = (type: string) => {
     switch (type) {
@@ -158,8 +165,21 @@ export default function AuditPage() {
         </select>
       </div>
 
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={fetchAuditLogs}
+            className="px-3 py-1 bg-rose-900/60 hover:bg-rose-800 text-white rounded-lg font-semibold cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Events Timeline List */}
       <div className="rounded-3xl glass-panel border border-slate-800 overflow-hidden shadow-sm">
+
         <div className="divide-y divide-slate-800/60">
           {filteredEvents.length === 0 ? (
             <div className="p-12 text-center text-xs text-slate-500">

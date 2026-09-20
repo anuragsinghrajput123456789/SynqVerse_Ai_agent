@@ -292,6 +292,43 @@ export async function retrieveTargetedContext(
         }
       }
 
+      // Extract driver from vehicle trips & tickets to resolve driver association
+      const associatedDriverIds = new Set<string>();
+      for (const t of trips) {
+        if (t.driverId) associatedDriverIds.add(t.driverId);
+      }
+      const vehicleTickets = (await store.getAllTickets()).filter(
+        (tk) =>
+          tk.vehicle.replace(/[\s\-]+/g, '').toUpperCase() ===
+          vehicle.registrationNumber.replace(/[\s\-]+/g, '').toUpperCase()
+      );
+      for (const tk of vehicleTickets) {
+        if (tk.driverId) associatedDriverIds.add(tk.driverId);
+      }
+
+      for (const dId of Array.from(associatedDriverIds)) {
+        const driver = await store.getDriver(dId);
+        if (driver) {
+          const { data: maskedDriver } = maskPii(driver);
+          evidenceStatements.push(
+            `Associated Driver for Vehicle ${vehicle.registrationNumber}: Driver ${driver.name} (ID: ${driver.driverId}, Home Hub: ${driver.homeHub}, Joining Date: ${driver.joiningDate}, Phone: [REDACTED], DL: [REDACTED], Aadhaar: [REDACTED]).`
+          );
+
+          citations.push({
+            sourceType: 'drivers_roster',
+            sourceId: `drivers_roster_${driver.driverId}`,
+            title: 'drivers_roster.csv',
+            recordId: driver.driverId,
+            field: 'associated_driver',
+            originalValueMasked: maskedDriver,
+            resolvedValue: maskedDriver,
+            precedence: 1,
+            resolutionReason: 'Authoritative Drivers Roster record associated via trip/breakdown dispatch',
+            relevance: `Assigned driver ${driver.name} (${driver.driverId}) for vehicle ${vehicle.registrationNumber}`,
+          });
+        }
+      }
+
       // If evaluating why vehicle was rejected or evaluated as candidate
       if (intent === 'vehicle_rejection' || intent === 'replacement_selection' || lowerQ.includes('reject') || lowerQ.includes('why')) {
         // Evaluate candidate vehicle against sample breakdown scenario (e.g. Hill route Rudrapur / Winter Delhi NCR)
@@ -633,6 +670,103 @@ export async function retrieveTargetedContext(
       evidenceStatements.push(
         `Source Conflict [${c.entityType} ${c.entityId}]: Field "${c.field}" has conflicting values between ${c.winningSource} (Value: ${c.winningValue}) and ${c.rejectedSource} (Value: ${c.rejectedValue}). Winning value chosen per precedence: ${c.reason}.`
       );
+    }
+  }
+
+  // 7. SOURCE PRECEDENCE HIERARCHY
+  if (
+    intent === 'source_precedence' ||
+    lowerQ.includes('authoritative') ||
+    lowerQ.includes('precedence') ||
+    lowerQ.includes('hierarchy') ||
+    (lowerQ.includes('why') && lowerQ.includes('source'))
+  ) {
+    evidenceStatements.push(
+      `Operational Source Precedence Hierarchy (Strict 5-Tier Order of Truth):\n` +
+      `Tier 1: Master Records (fleet_master.csv, drivers_roster.csv) - Highest legal and organizational authority for asset specifications, compliance standards, and driver profiles.\n` +
+      `Tier 2: Workshop Records (maintenance_log.xlsx) - Authoritative for physical inspections, parts overhauls, odometer readings, and mechanical component readiness.\n` +
+      `Tier 3: Operational Logs & Telematics (meridian_trips.csv, tickets.json, work_orders, approvals, audit_events) - Live trip execution, breakdown incidents, and dispatched workflows.\n` +
+      `Tier 4: Confirmed Operational Agreements (email threads with plant heads and hub managers) - Valid overrides for delivery windows (e.g. Shakti Cement 36h SLA) and operational gates.\n` +
+      `Tier 5: Free-text Interview Transcripts & Mechanic Notes (dispatcher_interview.txt, unverified remarks) - Advisory heuristics and dispatcher rules (R-001 through R-013). When a conflict occurs with Tier 1-3, Tier 1-3 wins deterministically.`
+    );
+
+    citations.push({
+      sourceType: 'dispatcher_interview',
+      sourceId: 'precedence_hierarchy_rule',
+      title: 'dispatcher_interview.txt',
+      recordId: 'PRECEDENCE_FRAMEWORK',
+      field: 'source_precedence',
+      originalValueMasked: '5-tier hierarchy defined in fleet governance policy',
+      resolvedValue: {
+        tier1: 'fleet_master / drivers_roster',
+        tier2: 'maintenance_log',
+        tier3: 'operational_trips_tickets',
+        tier4: 'email_agreements',
+        tier5: 'interview_transcripts',
+      },
+      precedence: 1,
+      resolutionReason: 'Meridian Fleet Governance Policy §2.1 on multi-source conflict resolution',
+      relevance: 'Authoritative 5-tier source precedence hierarchy explanation',
+    });
+  }
+
+  // 8. OPERATIONAL CONTEXT OVERVIEW
+  if (
+    intent === 'operational_context' ||
+    lowerQ.includes('operational context') ||
+    lowerQ.includes('fleet overview') ||
+    lowerQ.includes('fleet summary')
+  ) {
+    const allVehicles = await store.getAllVehicles();
+    const allClients = await store.getAllClients();
+    const allTickets = await store.getAllTickets();
+    const allDrivers = await store.getAllDrivers();
+
+    const activeTicketsCount = allTickets.filter((t) => t.status === 'READY' || t.status === 'IN_PROGRESS').length;
+    const hubs = Array.from(new Set(allVehicles.map((v) => v.homeHub))).sort();
+    const clientNames = allClients.map((c) => c.name).join(', ');
+
+    evidenceStatements.push(
+      `Operational Context Overview: Total Fleet Size: ${allVehicles.length} vehicles across hubs (${hubs.join(
+        ', '
+      )}). Total Active Drivers: ${allDrivers.length}. Active Clients: ${clientNames}. Active Breakdown Tickets: ${activeTicketsCount} open incidents under dispatch triage.`
+    );
+
+    citations.push({
+      sourceType: 'fleet_master',
+      sourceId: 'operational_overview_context',
+      title: 'fleet_master.csv & operational_graph',
+      field: 'operational_overview',
+      originalValueMasked: { totalVehicles: allVehicles.length, activeTickets: activeTicketsCount },
+      resolvedValue: { totalVehicles: allVehicles.length, hubs, clientNames },
+      precedence: 1,
+      resolutionReason: 'Aggregate operational overview across Fleet Master, Roster, and Ticket queue',
+      relevance: 'High-level operational context and fleet status',
+    });
+  }
+
+  // 9. MISSING INFORMATION IDENTIFICATION
+  if (
+    intent === 'missing_info' ||
+    lowerQ.includes('missing') ||
+    lowerQ.includes('information is missing')
+  ) {
+    for (const vQuery of Array.from(queriedVehicles)) {
+      const vehicle = await store.getVehicle(vQuery);
+      if (vehicle) {
+        const missingFields: string[] = [];
+        if (!vehicle.engineHeater) missingFields.push('Engine Block Heater (absent, required for cold hill routes)');
+        const maint = loadMaintenanceRecords().filter(
+          (m) => m.vehicleReg.replace(/[\s\-]+/g, '').toUpperCase() === vehicle.registrationNumber.replace(/[\s\-]+/g, '').toUpperCase()
+        );
+        if (maint.length === 0) missingFields.push('Recent workshop maintenance inspection record');
+
+        evidenceStatements.push(
+          `Missing Information for Vehicle ${vehicle.registrationNumber}: ${
+            missingFields.length > 0 ? missingFields.join('; ') : 'No critical operational telemetry or maintenance gaps detected in records.'
+          }.`
+        );
+      }
     }
   }
 
